@@ -2,7 +2,7 @@
 
 A focused VM image for serving vLLM through HTTPS inside a confidential NVIDIA GPU VM. One guest, two disk formats: Azure fixed VHD and GCP raw-disk archive. This repository packages **vLLM 0.31.0**, without another inference engine or remote inference fallback.
 
-**Status:** experimental core image. Source checks pass; the first Linux image build is in progress. Cloud import, confidential H100 execution and public ACME issuance have not been validated. Customer verification of the image and TLS identity is deferred. Do not interpret a successful local build as a confidential-computing proof.
+**Status:** experimental core image. Linux builds, Azure/GCP export comparisons, ordinary-VM rejection and network-policy checks, and installed parser/compiler checks passed. Per-image inventories and vulnerability scans are in progress. Cloud import, confidential H100 execution and public ACME issuance have not been validated. Customer verification of the image and TLS identity is deferred. Do not interpret a successful local build as a confidential-computing proof.
 
 The sibling project is [zmax-ntrust-sglang](https://github.com/ZUNFTMAX/zmax-ntrust-sglang).
 

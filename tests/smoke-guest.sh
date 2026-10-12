@@ -94,6 +94,7 @@ for unit in sleep.target suspend.target hibernate.target systemd-pstore.service 
 done
 for module in nfsd kvm nvmet_tcp ib_srpt sctp amdgpu openvswitch scsi_debug kafs bluetooth vxlan target_core_iblock idpf vmwgfx ip_vs snd_pcm; do
   if modprobe "$module"; then echo "ERROR: loaded forbidden module $module" >&2; exit 1; fi
+  test ! -d "/sys/module/${module//-/_}"
 done
 modinfo -F filename gve
 printf 'Kernel configuration for architecture and allocator triage:\n'
@@ -107,9 +108,40 @@ done
 printf 'PASS: unwanted packages absent; sleep/pstore disabled; optional subsystems reject module loads.\n'
 
 systemctl show -p ActiveState -p SubState systemd-timesyncd.service
+printf 'Running OS services in this ordinary VM:\n'
+systemctl list-units --type=service --state=running --no-legend --no-pager
 ss -ltn
 df -B1 /
 printf 'PASS: completed image boots; ordinary VM rejected; no inference listener or API key.\n'
+# Test the shipped inference network policy with public synthetic data.
+# No GPU gate is bypassed and no inference process is started.
+fixture=$(mktemp -d /run/ntrust-network-check.XXXXXX)
+printf 'network-check\n' > "$fixture/index.html"
+python3 -m http.server 18081 --bind 0.0.0.0 --directory "$fixture" >/dev/null 2>&1 &
+fixture_pid=$!
+trap 'kill "$fixture_pid" 2>/dev/null || true; rm -rf "$fixture"' EXIT
+for _ in $(seq 1 20); do
+  if curl --noproxy '*' --fail --silent --max-time 1 -o /dev/null http://127.0.0.1:18081/; then break; fi
+  sleep 1
+done
+guest_ip=$(ip -4 -o addr show scope global | awk 'NR==1 {sub(/\/.*/, "", $4); print $4}')
+test -n "$guest_ip"
+curl --noproxy '*' --fail --silent --max-time 2 -o /dev/null "http://$guest_ip:18081/"
+policy=(--property=User=ntrust
+  --property="IPAddressDeny=$(systemctl show -p IPAddressDeny --value ntrust-inference.service)"
+  --property="IPAddressAllow=$(systemctl show -p IPAddressAllow --value ntrust-inference.service)")
+systemd-run --quiet --wait --pipe --collect "${policy[@]}" \
+  curl --noproxy '*' --fail --silent --max-time 3 -o /dev/null http://127.0.0.1:18081/
+if systemd-run --quiet --wait --pipe --collect "${policy[@]}" \
+  curl --noproxy '*' --fail --silent --max-time 3 -o /dev/null "http://$guest_ip:18081/"; then
+  echo 'ERROR: inference policy allowed a non-loopback destination' >&2
+  exit 1
+fi
+kill "$fixture_pid"
+wait "$fixture_pid" 2>/dev/null || true
+rm -rf "$fixture"
+trap - EXIT
+printf 'PASS: actual inference IP policy permits loopback and denies a reachable non-loopback destination.\n'
 GUEST
 "${guest_ssh[@]}" 'sudo /opt/ntrust/venv/bin/python -' < image/check-engine.py | tee "$qa/engine-parser.log"
 "${guest_ssh[@]}" sudo poweroff || true

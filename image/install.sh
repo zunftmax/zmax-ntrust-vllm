@@ -9,7 +9,7 @@ apt-get upgrade -y --no-install-recommends
 # cloud image does not ship its configuration, and apt may otherwise order the
 # two packages in the opposite direction during a kernel-family change.
 apt-get install -y --no-install-recommends initramfs-tools
-# Signed, precompiled NVIDIA modules avoid a compiler/DKMS in the appliance.
+# Signed, precompiled NVIDIA modules avoid DKMS; compilers below serve engine JIT.
 apt-get install -y --no-install-recommends \
   linux-image-virtual-hwe-24.04 linux-modules-nvidia-580-server-open-generic-hwe-24.04 \
   nvidia-utils-580-server libnvidia-compute-580-server nvidia-compute-utils-580-server \

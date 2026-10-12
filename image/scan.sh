@@ -19,5 +19,7 @@ sudo -n "$NTRUST_SCAN_TOOLS/trivy" rootfs --cache-dir "$NTRUST_TRIVY_CACHE" \
   --scanners vuln --format json --output "$out/vulnerabilities.trivy.json" --timeout 15m "$root" \
   2> "$out/trivy.log"
 sudo -n cp "$NTRUST_TRIVY_CACHE/db/metadata.json" "$out/trivy-db-metadata.json"
+sudo -n systemctl --root="$root" list-unit-files --no-legend --no-pager | tee "$out/unit-files.txt" > /dev/null
+sudo -n cp "$root"/boot/config-*-generic "$out/"
 cp dist/SHA256SUMS "$out/image-SHA256SUMS"
 sudo -n chown -R "$(id -u):$(id -g)" "$out"

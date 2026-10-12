@@ -32,21 +32,28 @@ for dist in sorted(importlib.metadata.distributions(path=[str(root / 'opt/ntrust
     component = {'type': 'library', 'name': name, 'version': version, 'purl': purl, 'bom-ref': purl}
     components.append(component)
 native = []
+print(f'Installed: {len(debian)} Debian packages and {len(python)} Python distributions; enumerating native-file candidates', flush=True)
 paths = [root / p for p in ['usr/sbin/nginx', 'usr/bin/nvattest', 'usr/lib/nginx/modules/ngx_http_acme_module.so']]
 paths += list((root / 'opt/ntrust/venv').rglob('*'))
-for path in paths:
+print(f'Inspecting {len(paths)} paths for ELF headers', flush=True)
+for index, path in enumerate(paths, 1):
+    if index % 2500 == 0:
+        print(f'Examining path {index}/{len(paths)}; {len(native)} ELF files inventoried', flush=True)
     if path.is_symlink() or not path.is_file():
         continue
     with path.open('rb') as stream:
         if stream.read(4) != b'\x7fELF':
             continue
+        size = path.stat().st_size
+        if size >= 256 * 1024 * 1024:
+            print(f'Hashing {path.relative_to(root)} ({size:,} bytes)', flush=True)
         stream.seek(0)
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     name = '/' + str(path.relative_to(root))
-    native.append({'path': name, 'sha256': digest, 'bytes': path.stat().st_size})
+    native.append({'path': name, 'sha256': digest, 'bytes': size})
     components.append({'type': 'file', 'name': name, 'bom-ref': 'file:' + name, 'hashes': [{'alg': 'SHA-256', 'content': digest}]})
-inventory = {'generated': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'debian': debian, 'python': python, 'native_files': native}
+inventory = {'generated': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'debian': debian, 'python': python, 'native_files': native, 'native_scope': 'ELF files in the inference venv plus NGINX, its ACME module and nvattest; Debian package contents are otherwise identified at package level'}
 (out / 'inventory.json').write_text(json.dumps(inventory, indent=2) + '\n')
 bom = {'bomFormat': 'CycloneDX', 'specVersion': '1.6', 'version': 1, 'metadata': {'timestamp': inventory['generated']}, 'components': components}
 (out / 'sbom.cdx.json').write_text(json.dumps(bom, indent=2) + '\n')
-print(f'Inventory: {len(debian)} Debian packages, {len(python)} Python distributions, {len(native)} native files (overlapping package contents)')
+print(f'Inventory: {len(debian)} Debian packages, {len(python)} Python distributions, {len(native)} native ELF files (overlapping package contents)')
