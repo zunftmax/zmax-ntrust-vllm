@@ -16,6 +16,8 @@ CT observes new certificate issuance; it neither seals this disk nor prevents a 
 
 No vulnerability scan or package count from the earlier engine is evidence for these new images. Every built image needs its own inventory and scan. Build outputs include the installed Debian/Python versions and native-file hashes; vulnerability results must be dated and tied to the corresponding disk hash.
 
+The [2026-10-12 evidence packet](../sbom/2026-10-12/README.md) contains this image's completed inventory, independent scan, ordinary boot checks and export hashes. Raw results include 5 CRITICAL and 166 HIGH package matches: 148 concern kernel-source advisories assigned to the UAPI-header package, while 23 concern the installed HWE kernel and have individual configuration/module/filesystem dispositions. These mitigations are not vendor patches. The vLLM-compatible setuptools version also retains a MEDIUM source-distribution publishing advisory; that workflow is absent here, and the upstream version constraint prevents a compatible upgrade to the scanner-listed fix. The packet retains the full findings and reasoning without suppression.
+
 ## Script and service decisions
 
 | File or service | Review and retained purpose |
@@ -49,3 +51,23 @@ No vulnerability scan or package count from the earlier engine is evidence for t
 | `.github/workflows/check.yml` | Source checks with a pinned checkout action and read-only token; no image build or cloud deployment |
 
 Retained OS services cover systemd/udev, volatile journal, networking/DNS/time, cloud-init bootstrap, AppArmor, restricted operator SSH and filesystem/boot maintenance. NVIDIA persistence remains part of the documented GPU setup. Unit entries include static and masked definitions; they are not all running background daemons. Exact unit states belong to each built-image inventory.
+## Operating-system service decisions
+
+The ordinary boot checks recorded the running services. GPU persistence is expected to fail in that CPU-only test; it remains a required dependency on the target H100 VM. Static, masked and timer-activated definitions are listed separately in the image inventory.
+
+| Service or group | Selection and exposure |
+| --- | --- |
+| `nvidia-persistenced` | Retains NVIDIA's documented UVM persistence and driver setup; required for the GPU data path, without a project-owned GPU daemon |
+| `systemd-networkd` | Configures the cloud NIC and routes; needed for the shared Azure/GCP guest |
+| `systemd-resolved` | Local DNS for bootstrap, NVIDIA verification and ACME; the inference process is configured for local/offline operation |
+| `systemd-timesyncd` / `systemd-time-wait-sync` | Certificate verification needs a usable clock; the startup wait is bounded to 90 seconds |
+| `systemd-udevd` | Creates and manages cloud storage/network and NVIDIA device nodes |
+| `systemd-journald` | OS diagnostics use a bounded volatile journal; inference and HTTPS stdout/stderr are discarded |
+| `dbus` / `systemd-logind` | Standard OS coordination and trusted operator login sessions; no inference API or telemetry collector |
+| `ssh` | Restricted operator administration and per-boot API-credential retrieval; root/password SSH is disabled and the operator channel remains trusted |
+| `getty@tty1` / `serial-getty@ttyS0` | Retained local/serial recovery consoles; these are OS login services, not application endpoints |
+| `user@1000` | Observed because the smoke test logs in as the operator; it is a login-session user manager, not an inference service |
+| `cloud-init*` | First-boot networking, operator public key and public model setup; optional telemetry reporting and hotplug listener are disabled |
+| AppArmor and filesystem/boot maintenance | Retain distribution policy loading, filesystem checks and maintenance; these are not additional inference daemons |
+
+The removed Azure provisioning daemon, Ubuntu Pro, crash reporters, unattended update tasks, optional hotplug listener, suspend/hibernate and pstore services do not return as dependencies of the new engine.

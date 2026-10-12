@@ -2,6 +2,8 @@
 
 This records the selected vLLM build inputs and their purpose. Expected risk below describes exposure and trust, not a computed probability or a promise of safety. [requirements.lock](../image/requirements.lock) pins 200 Python distributions and accepted SHA-256 hashes for Linux Python 3.12. The image inventory records exact installed OS versions and native-file hashes; source requirements alone are not an installed-image SBOM.
 
+The [2026-10-12 installed-image SBOM and evidence](../sbom/2026-10-12/README.md) records 322 Debian packages and 200 Python distributions. Its native-file inventory separately counts 42,704 bundled GPU kernels and 503 other ELF files; these files overlap package contents. Both project and Syft CycloneDX documents passed schema validation. Raw vulnerability results and explicit triage remain published, including unpatched kernel findings.
+
 | Item | Selected version / source | Why retained | Expected risk and control |
 | --- | --- | --- | --- |
 | Ubuntu minimal | 24.04, base 20261008, SHA in Packer | One maintained guest for Azure/GCP; cloud-init handles both | Kernel/OS privileged TCB; apply updates during build, inventory exact result |

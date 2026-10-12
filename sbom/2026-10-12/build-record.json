@@ -1,0 +1,67 @@
+{
+  "engine": "vllm",
+  "build_source_commit": "7ec986438b986d8831ebc0a8fc596dd4a5873c91",
+  "build_host": "axp.computer",
+  "build_platform": "Linux x86_64 KVM",
+  "virtual_disk_bytes": 68719476736,
+  "artifacts": [
+    {
+      "path": "dist/qemu/ntrust.qcow2",
+      "sha256": "ea6afaf24e69bfc88e0a186895c51f8abc8111c092060fb9a6ea5ccd868f316d",
+      "bytes": 16720461824,
+      "allocated_bytes_on_builder": 16721571840
+    },
+    {
+      "path": "dist/ntrust-gcp.tar.gz",
+      "sha256": "1d1df0c7fbda353d23a72523c32ca50b87f28b0b64e1f67c286b1aa42c497f5d",
+      "bytes": 6101726616,
+      "allocated_bytes_on_builder": 6101733376
+    },
+    {
+      "path": "dist/ntrust-azure.vhd",
+      "sha256": "3874007a293454578e1e981cfeeb548118c70f231f70f405be0038fa1454e48e",
+      "bytes": 68719477248,
+      "allocated_bytes_on_builder": 16550506496
+    }
+  ],
+  "collected_source_sha256": {
+    "guest/blocked-modules.conf": "e39c121d62f657f0a65075570df471b1f6f582ac191047719639b79aa3e311bf",
+    "guest/cloud-init.example.yaml": "760ee422167260bc4d98d07347e4024f4bde6ef48dd79c9f44b39f5975768e70",
+    "guest/fetch-model": "a1b28259901c37933d4a54b8e4cd03d2f03ddfda35c141ec294961215028c343",
+    "guest/gpu-ready": "6f317013bea8c492dfc7f9b6ddc36c710389b0418eae5a1e29f25976bb008f81",
+    "guest/https-start": "3cbd2370340843f1d014efc2f8e71fb9a560f16c0da4d42ffa6cff63f56be2f7",
+    "guest/inference-ready": "721053d54a5a50d86db2b41682ea6ba042c64c5bde6db5c7453f63b49fbb6647",
+    "guest/inference-start": "99626ac0a8e23d6feaed5eb0f9b35a43a6c6cfbc72554095a5b15f9991d24512",
+    "guest/model.json": "24d3eb71fd437fd0c65de87cd4322c2bfb50a8859ff48cd7a463d72375be52e8",
+    "guest/nginx.conf.template": "bae729b75cfd2fdf3b8bfef1ff7cfb938f4a57783539b29b9afb7712aa477afc",
+    "guest/runtime.env.example": "23bb5cbbec87c9e22c2342e3cafdc548c0ed77c0a1399b2e0ec5aabe970c42a3",
+    "guest/status": "f919f047e62810a87503d3c9cec09072654e6cf06211217443dc822bf6ce32f5",
+    "guest/systemd/ntrust-gpu.service": "5f8882408f79c8eaaf3ea3c24bb6680ed2f4fe4fcb0e4c8a2136bff18b51b0d6",
+    "guest/systemd/ntrust-https.service": "7dfe5a61a69e85e184f2104e61ad492efb2aad9813a853cf9835f9d5c470d600",
+    "guest/systemd/ntrust-inference.service": "6b80a39bd4a57efa678eb0121ece19b28c7da329c14342cff4ef358a9ff61380",
+    "image/build-cloud-init.yaml": "3061cfeac98845da7256de947d9a5c3f872eff02c6b29e183db12de26811171a",
+    "image/check-engine.py": "1ff3d3fc3c9299e4248fffe0751fb0d6f7b22fc5fafffb9118f41601ff04b2e3",
+    "image/check-installed.sh": "c462ea5b809507d19bdc23d838779b3f3b28ffe31e7847ffc7f6c788d53c3342",
+    "image/clouds.md": "bf3b71f49c2130f15b9d855ebfe63ab47cca8d6e5a76830af746cfdc81890290",
+    "image/export.sh": "4a9801904804fb63595bdaedc3b330fab16e5e0c93ab42cafd244b88772411b7",
+    "image/finalize.sh": "ff3a4bef4a7ba1515f225eb93149f9c3919e9f5c814674817891b0d036956c4e",
+    "image/install.sh": "8114dd359b30ad570fbb8d0acbff6a77a3fa9ba530bc43aa4f7e6a1584a49768",
+    "image/inventory.py": "2483477b4c8384578325350a9b4d47a667a41912d660e0f753fa0e7d60179b8a",
+    "image/inventory.sh": "bde2e845b1e0e3502753235c4e39cda7233f628ecc8e9490a027b362fc639ee7",
+    "image/ntrust.pkr.hcl": "8920383c22c1894791b741876dc75fb7d52223ea3458ebac9571b64b3aa7eb77",
+    "image/requirements.in": "5a98c239e962c9dea3752c9736e393e934ac2fd3fc145b93ae9c39a585a0f783",
+    "image/requirements.lock": "8b0d5cd5324754f7b464e889c6a7829741c483ac024e429a94c9346889be06cc",
+    "image/scan.sh": "9fcf804c4d2785c2211e135163e7543fc0b03068459253ff427f8dd1722a8814"
+  },
+  "evidence_limits": [
+    "No cloud import or launch",
+    "No confidential CPU/GPU hardware test",
+    "No GPU model execution",
+    "No live ACME issuance",
+    "No customer attestation or image sealing"
+  ],
+  "notes": [
+    "Source hashes include post-build inventory/scan helper refinements; the runtime guest inputs remain those of build_source_commit.",
+    "allocated_bytes_on_builder is local filesystem allocation, not upload or guest filesystem size."
+  ]
+}

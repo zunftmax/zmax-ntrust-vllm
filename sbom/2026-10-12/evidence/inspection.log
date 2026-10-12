@@ -1,0 +1,4 @@
+PASS: no build SSH authorization, SSH host keys, cloud-init instance/seed, saved random seed, runtime configuration or model.
+PASS: no PEM/OpenSSH private key headers in regular files <=10 MiB under etc, root, home, var/lib, tmp and var/tmp.
+PASS: machine ID reset; root/password SSH disabled.
+16424632320	/home/azureuser/zmax-ntrust-vllm/build/inspect-final

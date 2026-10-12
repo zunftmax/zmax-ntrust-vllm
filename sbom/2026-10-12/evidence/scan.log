@@ -1,0 +1,4 @@
+test "$(uname -s)" = Linux
+test "$(uname -m)" = x86_64
+test -r /dev/kvm -a -w /dev/kvm
+bash image/scan.sh

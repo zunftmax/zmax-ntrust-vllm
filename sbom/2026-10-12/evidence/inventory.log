@@ -1,0 +1,5 @@
+test "$(uname -s)" = Linux
+test "$(uname -m)" = x86_64
+test -r /dev/kvm -a -w /dev/kvm
+bash image/inventory.sh
+Inventory: 322 Debian packages, 200 Python distributions, 43207 native ELF files (overlapping package contents)

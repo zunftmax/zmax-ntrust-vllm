@@ -1,0 +1,1283 @@
+test "$(uname -s)" = Linux
+test "$(uname -m)" = x86_64
+test -r /dev/kvm -a -w /dev/kvm
+packer init image/ntrust.pkr.hcl
+packer build image/ntrust.pkr.hcl
+qemu.ntrust: output will be in this color.
+
+==> qemu.ntrust: Retrieving ISO
+==> qemu.ntrust: Trying https://cloud-images.ubuntu.com/minimal/releases/noble/release-20261008/ubuntu-24.04-minimal-cloudimg-amd64.img
+==> qemu.ntrust: Trying https://cloud-images.ubuntu.com/minimal/releases/noble/release-20261008/ubuntu-24.04-minimal-cloudimg-amd64.img?checksum=sha256%3A2f119f50bf29fe40e73b69ae2a736e8210d8146796f036e0324315b6b3a777df
+==> qemu.ntrust: https://cloud-images.ubuntu.com/minimal/releases/noble/release-20261008/ubuntu-24.04-minimal-cloudimg-amd64.img?checksum=sha256%3A2f119f50bf29fe40e73b69ae2a736e8210d8146796f036e0324315b6b3a777df => /home/azureuser/.cache/packer/313a1612d65d0731e88252ba4345b70c0e56bce0.iso
+==> qemu.ntrust: Creating CD disk...
+==> qemu.ntrust: xorriso 1.5.6 : RockRidge filesystem manipulator, libburnia project.
+==> qemu.ntrust: Drive current: -outdev 'stdio:/tmp/packer3425267484.iso'
+==> qemu.ntrust: Media current: stdio file, overwriteable
+==> qemu.ntrust: Media status : is blank
+==> qemu.ntrust: Media summary: 0 sessions, 0 data blocks, 0 data, 7494m free
+==> qemu.ntrust: xorriso : WARNING : -volid text does not comply to ISO 9660 / ECMA 119 rules
+==> qemu.ntrust: Added to ISO image: directory '/'='/tmp/packer_to_cdrom1783850686'
+==> qemu.ntrust: xorriso : UPDATE :       2 files added in 1 seconds
+==> qemu.ntrust: xorriso : UPDATE :       2 files added in 1 seconds
+==> qemu.ntrust: ISO image produced: 185 sectors
+==> qemu.ntrust: Written to medium : 185 sectors at LBA 0
+==> qemu.ntrust: Writing to 'stdio:/tmp/packer3425267484.iso' completed successfully.
+==> qemu.ntrust: Done copying paths from CD_dirs
+==> qemu.ntrust: Copying hard drive...
+==> qemu.ntrust: Resizing hard drive...
+==> qemu.ntrust: Found port for communicator (SSH, WinRM, etc): 2861.
+==> qemu.ntrust: Using existing SSH private key
+==> qemu.ntrust: Looking for available port between 5900 and 6000 on 127.0.0.1
+==> qemu.ntrust: Starting VM, booting disk image
+==> qemu.ntrust: The VM will be run headless, without a GUI. If you want to
+==> qemu.ntrust: view the screen of the VM, connect via VNC without a password to
+==> qemu.ntrust: vnc://127.0.0.1:5958
+==> qemu.ntrust: Overriding default Qemu arguments with qemuargs template option...
+==> qemu.ntrust: Waiting 10s for boot...
+==> qemu.ntrust: Connecting to VM via VNC (127.0.0.1:5958)
+==> qemu.ntrust: Typing the boot commands over VNC...
+==> qemu.ntrust: Not using a NetBridge -- skipping StepWaitGuestAddress
+==> qemu.ntrust: Using SSH communicator to connect: 127.0.0.1
+==> qemu.ntrust: Waiting for SSH to become available...
+==> qemu.ntrust: Connected to SSH!
+==> qemu.ntrust: Provisioning with shell script: /tmp/packer-shell1894053789
+==> qemu.ntrust: ....status: done
+==> qemu.ntrust: Uploading /home/azureuser/zmax-ntrust-vllm/guest => /tmp/ntrust/
+==> qemu.ntrust: Uploading /home/azureuser/zmax-ntrust-vllm/image => /tmp/ntrust/
+==> qemu.ntrust: Provisioning with shell script: /tmp/packer-shell2264813522
+==> qemu.ntrust: Get:1 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+==> qemu.ntrust: Get:2 http://archive.ubuntu.com/ubuntu noble InRelease [256 kB]
+==> qemu.ntrust: Get:3 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages [1121 kB]
+==> qemu.ntrust: Get:4 http://archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+==> qemu.ntrust: Get:5 http://archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+==> qemu.ntrust: Get:6 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages [1401 kB]
+==> qemu.ntrust: Get:7 http://security.ubuntu.com/ubuntu noble-security/main Translation-en [228 kB]
+==> qemu.ntrust: Get:8 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1220 kB]
+==> qemu.ntrust: Get:9 http://security.ubuntu.com/ubuntu noble-security/universe Translation-en [245 kB]
+==> qemu.ntrust: Get:10 http://archive.ubuntu.com/ubuntu noble/main Translation-en [513 kB]
+==> qemu.ntrust: Get:11 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1674 kB]
+==> qemu.ntrust: Get:12 http://archive.ubuntu.com/ubuntu noble/universe amd64 Packages [15.0 MB]
+==> qemu.ntrust: Get:13 http://security.ubuntu.com/ubuntu noble-security/restricted Translation-en [383 kB]
+==> qemu.ntrust: Get:14 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Packages [45.4 kB]
+==> qemu.ntrust: Get:15 http://security.ubuntu.com/ubuntu noble-security/multiverse Translation-en [12.1 kB]
+==> qemu.ntrust: Get:16 http://archive.ubuntu.com/ubuntu noble/universe Translation-en [5982 kB]
+==> qemu.ntrust: Get:17 http://archive.ubuntu.com/ubuntu noble/restricted amd64 Packages [93.9 kB]
+==> qemu.ntrust: Get:18 http://archive.ubuntu.com/ubuntu noble/restricted Translation-en [18.7 kB]
+==> qemu.ntrust: Get:19 http://archive.ubuntu.com/ubuntu noble/multiverse amd64 Packages [269 kB]
+==> qemu.ntrust: Get:20 http://archive.ubuntu.com/ubuntu noble/multiverse Translation-en [118 kB]
+==> qemu.ntrust: Get:21 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1375 kB]
+==> qemu.ntrust: Get:22 http://archive.ubuntu.com/ubuntu noble-updates/main Translation-en [306 kB]
+==> qemu.ntrust: Get:23 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1702 kB]
+==> qemu.ntrust: Get:24 http://archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [342 kB]
+==> qemu.ntrust: Get:25 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1765 kB]
+==> qemu.ntrust: Get:26 http://archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [402 kB]
+==> qemu.ntrust: Get:27 http://archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Packages [50.7 kB]
+==> qemu.ntrust: Get:28 http://archive.ubuntu.com/ubuntu noble-updates/multiverse Translation-en [14.0 kB]
+==> qemu.ntrust: Get:29 http://archive.ubuntu.com/ubuntu noble-backports/main amd64 Packages [40.6 kB]
+==> qemu.ntrust: Get:30 http://archive.ubuntu.com/ubuntu noble-backports/main Translation-en [9172 B]
+==> qemu.ntrust: Get:31 http://archive.ubuntu.com/ubuntu noble-backports/universe amd64 Packages [31.0 kB]
+==> qemu.ntrust: Get:32 http://archive.ubuntu.com/ubuntu noble-backports/universe Translation-en [18.6 kB]
+==> qemu.ntrust: Get:33 http://archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Packages [748 B]
+==> qemu.ntrust: Get:34 http://archive.ubuntu.com/ubuntu noble-backports/multiverse Translation-en [340 B]
+==> qemu.ntrust: Fetched 35.1 MB in 6s (5584 kB/s)
+==> qemu.ntrust: Reading package lists...
+==> qemu.ntrust: Reading package lists...
+==> qemu.ntrust: Building dependency tree...
+==> qemu.ntrust: Reading state information...
+==> qemu.ntrust: Calculating upgrade...
+==> qemu.ntrust: 0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+==> qemu.ntrust: Reading package lists...
+==> qemu.ntrust: Building dependency tree...
+==> qemu.ntrust: Reading state information...
+==> qemu.ntrust: The following additional packages will be installed:
+==> qemu.ntrust:   busybox-initramfs dracut-install initramfs-tools-bin initramfs-tools-core
+==> qemu.ntrust:   klibc-utils libklibc
+==> qemu.ntrust: Suggested packages:
+==> qemu.ntrust:   bash-completion
+==> qemu.ntrust: Recommended packages:
+==> qemu.ntrust:   zstd
+==> qemu.ntrust: The following NEW packages will be installed:
+==> qemu.ntrust:   busybox-initramfs dracut-install initramfs-tools initramfs-tools-bin
+==> qemu.ntrust:   initramfs-tools-core klibc-utils libklibc
+==> qemu.ntrust: 0 upgraded, 7 newly installed, 0 to remove and 0 not upgraded.
+==> qemu.ntrust: Need to get 450 kB of archives.
+==> qemu.ntrust: After this operation, 1381 kB of additional disk space will be used.
+==> qemu.ntrust: Get:1 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 busybox-initramfs amd64 1:1.36.1-6ubuntu3.1 [189 kB]
+==> qemu.ntrust: Get:2 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 dracut-install amd64 060+5-1ubuntu3.4 [32.5 kB]
+==> qemu.ntrust: Get:3 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 initramfs-tools-bin amd64 0.142ubuntu25.8 [21.6 kB]
+==> qemu.ntrust: Get:4 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libklibc amd64 2.0.13-4ubuntu0.2 [47.3 kB]
+==> qemu.ntrust: Get:5 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 klibc-utils amd64 2.0.13-4ubuntu0.2 [100 kB]
+==> qemu.ntrust: Get:6 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 initramfs-tools-core all 0.142ubuntu25.8 [50.5 kB]
+==> qemu.ntrust: Get:7 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 initramfs-tools all 0.142ubuntu25.8 [9076 B]
+==> qemu.ntrust: debconf: delaying package configuration, since apt-utils is not installed
+==> qemu.ntrust: Fetched 450 kB in 1s (359 kB/s)
+==> qemu.ntrust: Selecting previously unselected package busybox-initramfs.
+==> qemu.ntrust: (Reading database ... 15099 files and directories currently installed.)
+==> qemu.ntrust: Preparing to unpack .../0-busybox-initramfs_1%3a1.36.1-6ubuntu3.1_amd64.deb ...
+==> qemu.ntrust: Unpacking busybox-initramfs (1:1.36.1-6ubuntu3.1) ...
+==> qemu.ntrust: Selecting previously unselected package dracut-install.
+==> qemu.ntrust: Preparing to unpack .../1-dracut-install_060+5-1ubuntu3.4_amd64.deb ...
+==> qemu.ntrust: Unpacking dracut-install (060+5-1ubuntu3.4) ...
+==> qemu.ntrust: Selecting previously unselected package initramfs-tools-bin.
+==> qemu.ntrust: Preparing to unpack .../2-initramfs-tools-bin_0.142ubuntu25.8_amd64.deb ...
+==> qemu.ntrust: Unpacking initramfs-tools-bin (0.142ubuntu25.8) ...
+==> qemu.ntrust: Selecting previously unselected package libklibc:amd64.
+==> qemu.ntrust: Preparing to unpack .../3-libklibc_2.0.13-4ubuntu0.2_amd64.deb ...
+==> qemu.ntrust: Unpacking libklibc:amd64 (2.0.13-4ubuntu0.2) ...
+==> qemu.ntrust: Selecting previously unselected package klibc-utils.
+==> qemu.ntrust: Preparing to unpack .../4-klibc-utils_2.0.13-4ubuntu0.2_amd64.deb ...
+==> qemu.ntrust: Unpacking klibc-utils (2.0.13-4ubuntu0.2) ...
+==> qemu.ntrust: Selecting previously unselected package initramfs-tools-core.
+==> qemu.ntrust: Preparing to unpack .../5-initramfs-tools-core_0.142ubuntu25.8_all.deb ...
+==> qemu.ntrust: Unpacking initramfs-tools-core (0.142ubuntu25.8) ...
+==> qemu.ntrust: Selecting previously unselected package initramfs-tools.
+==> qemu.ntrust: Preparing to unpack .../6-initramfs-tools_0.142ubuntu25.8_all.deb ...
+==> qemu.ntrust: Unpacking initramfs-tools (0.142ubuntu25.8) ...
+==> qemu.ntrust: Setting up libklibc:amd64 (2.0.13-4ubuntu0.2) ...
+==> qemu.ntrust: Setting up busybox-initramfs (1:1.36.1-6ubuntu3.1) ...
+==> qemu.ntrust: Setting up dracut-install (060+5-1ubuntu3.4) ...
+==> qemu.ntrust: Setting up klibc-utils (2.0.13-4ubuntu0.2) ...
+==> qemu.ntrust: No diversion 'diversion of /usr/share/initramfs-tools/hooks/klibc to /usr/share/initramfs-tools/hooks/klibc^i-t by klibc-utils', none removed.
+==> qemu.ntrust: Setting up initramfs-tools-bin (0.142ubuntu25.8) ...
+==> qemu.ntrust: Setting up initramfs-tools-core (0.142ubuntu25.8) ...
+==> qemu.ntrust: Setting up initramfs-tools (0.142ubuntu25.8) ...
+==> qemu.ntrust: update-initramfs: deferring update (trigger activated)
+==> qemu.ntrust: Processing triggers for initramfs-tools (0.142ubuntu25.8) ...
+==> qemu.ntrust: Reading package lists...
+==> qemu.ntrust: Building dependency tree...
+==> qemu.ntrust: Reading state information...
+==> qemu.ntrust: ca-certificates is already the newest version (20260601~24.04.1).
+==> qemu.ntrust: ca-certificates set to manually installed.
+==> qemu.ntrust: curl is already the newest version (8.5.0-2ubuntu10.15).
+==> qemu.ntrust: curl set to manually installed.
+==> qemu.ntrust: openssl is already the newest version (3.0.13-0ubuntu3.16).
+==> qemu.ntrust: openssl set to manually installed.
+==> qemu.ntrust: gettext-base is already the newest version (0.21-14ubuntu2).
+==> qemu.ntrust: gettext-base set to manually installed.
+==> qemu.ntrust: libssl3t64 is already the newest version (3.0.13-0ubuntu3.16).
+==> qemu.ntrust: libssl3t64 set to manually installed.
+==> qemu.ntrust: libcurl4t64 is already the newest version (8.5.0-2ubuntu10.15).
+==> qemu.ntrust: libcurl4t64 set to manually installed.
+==> qemu.ntrust: initramfs-tools is already the newest version (0.142ubuntu25.8).
+==> qemu.ntrust: cloud-init is already the newest version (26.1-0ubuntu1~24.04.1).
+==> qemu.ntrust: cloud-init set to manually installed.
+==> qemu.ntrust: lsb-release is already the newest version (12.0-2).
+==> qemu.ntrust: lsb-release set to manually installed.
+==> qemu.ntrust: openssh-server is already the newest version (1:9.6p1-3ubuntu13.19).
+==> qemu.ntrust: openssh-server set to manually installed.
+==> qemu.ntrust: systemd-resolved is already the newest version (255.4-1ubuntu8.17).
+==> qemu.ntrust: systemd-resolved set to manually installed.
+==> qemu.ntrust: systemd-timesyncd is already the newest version (255.4-1ubuntu8.17).
+==> qemu.ntrust: systemd-timesyncd set to manually installed.
+==> qemu.ntrust: The following additional packages will be installed:
+==> qemu.ntrust:   binutils binutils-common binutils-x86-64-linux-gnu cpp cpp-13
+==> qemu.ntrust:   cpp-13-x86-64-linux-gnu cpp-x86-64-linux-gnu g++-13 g++-13-x86-64-linux-gnu
+==> qemu.ntrust:   g++-x86-64-linux-gnu gcc-13 gcc-13-base gcc-13-x86-64-linux-gnu
+==> qemu.ntrust:   gcc-x86-64-linux-gnu libasan8 libatomic1 libbinutils libc-dev-bin libcc1-0
+==> qemu.ntrust:   libcrypt-dev libctf-nobfd0 libctf0 libexpat1-dev libgcc-13-dev libgprofng0
+==> qemu.ntrust:   libhwasan0 libisl23 libitm1 libjansson4 libjs-jquery libjs-sphinxdoc
+==> qemu.ntrust:   libjs-underscore liblsan0 libmpc3 libmpfr6 libnl-3-200 libnl-route-3-200
+==> qemu.ntrust:   libpciaccess0 libpython3-dev libpython3.12-dev libpython3.12t64 libquadmath0
+==> qemu.ntrust:   libsframe1 libstdc++-13-dev libtsan2 libubsan1 linux-image-7.0.0-38-generic
+==> qemu.ntrust:   linux-libc-dev linux-main-modules-v4l2loopback-7.0.0-38-generic
+==> qemu.ntrust:   linux-main-modules-zfs-7.0.0-38-generic linux-modules-7.0.0-38-generic
+==> qemu.ntrust:   linux-modules-nvidia-580-server-open-7.0.0-38-generic
+==> qemu.ntrust:   nvidia-firmware-580-server-580.178.04 nvidia-kernel-common-580-server
+==> qemu.ntrust:   ocl-icd-libopencl1 python3-pip-whl python3-setuptools-whl python3.12-dev
+==> qemu.ntrust:   python3.12-venv rpcsvc-proto wireless-regdb zlib1g-dev
+==> qemu.ntrust: Suggested packages:
+==> qemu.ntrust:   binutils-doc gprofng-gui cpp-doc gcc-13-locales cpp-13-doc g++-multilib
+==> qemu.ntrust:   g++-13-multilib gcc-13-doc gcc-multilib make manpages-dev autoconf automake
+==> qemu.ntrust:   libtool flex bison gdb gcc-doc gcc-13-multilib gdb-x86-64-linux-gnu
+==> qemu.ntrust:   glibc-doc libstdc++-13-doc linux-hwe-7.0-tools
+==> qemu.ntrust:   linux-headers-7.0.0-38-generic nvidia-driver-580-server
+==> qemu.ntrust: Recommended packages:
+==> qemu.ntrust:   manpages manpages-dev libc-devtools ibverbs-providers javascript-common
+==> qemu.ntrust: The following NEW packages will be installed:
+==> qemu.ntrust:   binutils binutils-common binutils-x86-64-linux-gnu cpp cpp-13
+==> qemu.ntrust:   cpp-13-x86-64-linux-gnu cpp-x86-64-linux-gnu g++ g++-13
+==> qemu.ntrust:   g++-13-x86-64-linux-gnu g++-x86-64-linux-gnu gcc gcc-13 gcc-13-base
+==> qemu.ntrust:   gcc-13-x86-64-linux-gnu gcc-x86-64-linux-gnu libasan8 libatomic1 libbinutils
+==> qemu.ntrust:   libc-dev-bin libc6-dev libcc1-0 libcrypt-dev libctf-nobfd0 libctf0
+==> qemu.ntrust:   libexpat1-dev libgcc-13-dev libgomp1 libgprofng0 libhwasan0 libibverbs1
+==> qemu.ntrust:   libisl23 libitm1 libjansson4 libjs-jquery libjs-sphinxdoc libjs-underscore
+==> qemu.ntrust:   liblsan0 libmpc3 libmpfr6 libnl-3-200 libnl-route-3-200 libnuma1
+==> qemu.ntrust:   libnvidia-cfg1-580-server libnvidia-compute-580-server libpciaccess0
+==> qemu.ntrust:   libpython3-dev libpython3.12-dev libpython3.12t64 libquadmath0 libsframe1
+==> qemu.ntrust:   libstdc++-13-dev libtsan2 libubsan1 linux-image-7.0.0-38-generic
+==> qemu.ntrust:   linux-image-virtual-hwe-24.04 linux-libc-dev
+==> qemu.ntrust:   linux-main-modules-v4l2loopback-7.0.0-38-generic
+==> qemu.ntrust:   linux-main-modules-zfs-7.0.0-38-generic linux-modules-7.0.0-38-generic
+==> qemu.ntrust:   linux-modules-nvidia-580-server-open-7.0.0-38-generic
+==> qemu.ntrust:   linux-modules-nvidia-580-server-open-generic-hwe-24.04 ninja-build
+==> qemu.ntrust:   nvidia-compute-utils-580-server nvidia-firmware-580-server-580.178.04
+==> qemu.ntrust:   nvidia-kernel-common-580-server nvidia-modprobe nvidia-utils-580-server
+==> qemu.ntrust:   ocl-icd-libopencl1 python3-dev python3-pip-whl python3-setuptools-whl
+==> qemu.ntrust:   python3-venv python3.12-dev python3.12-venv rpcsvc-proto wireless-regdb
+==> qemu.ntrust:   zlib1g-dev
+==> qemu.ntrust: 0 upgraded, 78 newly installed, 0 to remove and 0 not upgraded.
+==> qemu.ntrust: Need to get 413 MB of archives.
+==> qemu.ntrust: After this operation, 959 MB of additional disk space will be used.
+==> qemu.ntrust: Get:1 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libnl-3-200 amd64 3.7.0-0.3build1.1 [55.7 kB]
+==> qemu.ntrust: Get:2 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libnl-route-3-200 amd64 3.7.0-0.3build1.1 [189 kB]
+==> qemu.ntrust: Get:3 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libibverbs1 amd64 50.0-2ubuntu0.2 [68.0 kB]
+==> qemu.ntrust: Get:4 http://archive.ubuntu.com/ubuntu noble/main amd64 libjansson4 amd64 2.14-2build2 [32.8 kB]
+==> qemu.ntrust: Get:5 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libnuma1 amd64 2.0.18-1ubuntu0.24.04.1 [23.4 kB]
+==> qemu.ntrust: Get:6 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils-common amd64 2.42-4ubuntu2.10 [240 kB]
+==> qemu.ntrust: Get:7 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libsframe1 amd64 2.42-4ubuntu2.10 [15.7 kB]
+==> qemu.ntrust: Get:8 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libbinutils amd64 2.42-4ubuntu2.10 [577 kB]
+==> qemu.ntrust: Get:9 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libctf-nobfd0 amd64 2.42-4ubuntu2.10 [98.0 kB]
+==> qemu.ntrust: Get:10 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libctf0 amd64 2.42-4ubuntu2.10 [94.5 kB]
+==> qemu.ntrust: Get:11 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgprofng0 amd64 2.42-4ubuntu2.10 [849 kB]
+==> qemu.ntrust: Get:12 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils-x86-64-linux-gnu amd64 2.42-4ubuntu2.10 [2463 kB]
+==> qemu.ntrust: Get:13 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils amd64 2.42-4ubuntu2.10 [18.2 kB]
+==> qemu.ntrust: Get:14 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13-base amd64 13.3.0-6ubuntu2~24.04.1 [51.6 kB]
+==> qemu.ntrust: Get:15 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libisl23 amd64 0.26-3build1.1 [680 kB]
+==> qemu.ntrust: Get:16 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libmpfr6 amd64 4.2.1-1build1.1 [353 kB]
+==> qemu.ntrust: Get:17 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libmpc3 amd64 1.3.1-1build1.1 [54.6 kB]
+==> qemu.ntrust: Get:18 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 cpp-13-x86-64-linux-gnu amd64 13.3.0-6ubuntu2~24.04.1 [10.7 MB]
+==> qemu.ntrust: Get:19 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 cpp-13 amd64 13.3.0-6ubuntu2~24.04.1 [1042 B]
+==> qemu.ntrust: Get:20 http://archive.ubuntu.com/ubuntu noble/main amd64 cpp-x86-64-linux-gnu amd64 4:13.2.0-7ubuntu1 [5326 B]
+==> qemu.ntrust: Get:21 http://archive.ubuntu.com/ubuntu noble/main amd64 cpp amd64 4:13.2.0-7ubuntu1 [22.4 kB]
+==> qemu.ntrust: Get:22 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libcc1-0 amd64 14.2.0-4ubuntu2~24.04.1 [48.0 kB]
+==> qemu.ntrust: Get:23 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgomp1 amd64 14.2.0-4ubuntu2~24.04.1 [148 kB]
+==> qemu.ntrust: Get:24 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libitm1 amd64 14.2.0-4ubuntu2~24.04.1 [29.7 kB]
+==> qemu.ntrust: Get:25 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libatomic1 amd64 14.2.0-4ubuntu2~24.04.1 [10.5 kB]
+==> qemu.ntrust: Get:26 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libasan8 amd64 14.2.0-4ubuntu2~24.04.1 [3027 kB]
+==> qemu.ntrust: Get:27 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 liblsan0 amd64 14.2.0-4ubuntu2~24.04.1 [1322 kB]
+==> qemu.ntrust: Get:28 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libtsan2 amd64 14.2.0-4ubuntu2~24.04.1 [2772 kB]
+==> qemu.ntrust: Get:29 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libubsan1 amd64 14.2.0-4ubuntu2~24.04.1 [1184 kB]
+==> qemu.ntrust: Get:30 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libhwasan0 amd64 14.2.0-4ubuntu2~24.04.1 [1641 kB]
+==> qemu.ntrust: Get:31 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libquadmath0 amd64 14.2.0-4ubuntu2~24.04.1 [153 kB]
+==> qemu.ntrust: Get:32 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgcc-13-dev amd64 13.3.0-6ubuntu2~24.04.1 [2681 kB]
+==> qemu.ntrust: Get:33 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13-x86-64-linux-gnu amd64 13.3.0-6ubuntu2~24.04.1 [21.1 MB]
+==> qemu.ntrust: Get:34 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13 amd64 13.3.0-6ubuntu2~24.04.1 [494 kB]
+==> qemu.ntrust: Get:35 http://archive.ubuntu.com/ubuntu noble/main amd64 gcc-x86-64-linux-gnu amd64 4:13.2.0-7ubuntu1 [1212 B]
+==> qemu.ntrust: Get:36 http://archive.ubuntu.com/ubuntu noble/main amd64 gcc amd64 4:13.2.0-7ubuntu1 [5018 B]
+==> qemu.ntrust: Get:37 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libc-dev-bin amd64 2.39-0ubuntu8.9 [20.4 kB]
+==> qemu.ntrust: Get:38 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-libc-dev amd64 6.8.0-146.146 [1540 kB]
+==> qemu.ntrust: Get:39 http://archive.ubuntu.com/ubuntu noble/main amd64 libcrypt-dev amd64 1:4.4.36-4build1 [112 kB]
+==> qemu.ntrust: Get:40 http://archive.ubuntu.com/ubuntu noble/main amd64 rpcsvc-proto amd64 1.4.2-0ubuntu7 [67.4 kB]
+==> qemu.ntrust: Get:41 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libc6-dev amd64 2.39-0ubuntu8.9 [2126 kB]
+==> qemu.ntrust: Get:42 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libstdc++-13-dev amd64 13.3.0-6ubuntu2~24.04.1 [2420 kB]
+==> qemu.ntrust: Get:43 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 g++-13-x86-64-linux-gnu amd64 13.3.0-6ubuntu2~24.04.1 [12.2 MB]
+==> qemu.ntrust: Get:44 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 g++-13 amd64 13.3.0-6ubuntu2~24.04.1 [16.0 kB]
+==> qemu.ntrust: Get:45 http://archive.ubuntu.com/ubuntu noble/main amd64 g++-x86-64-linux-gnu amd64 4:13.2.0-7ubuntu1 [964 B]
+==> qemu.ntrust: Get:46 http://archive.ubuntu.com/ubuntu noble/main amd64 g++ amd64 4:13.2.0-7ubuntu1 [1100 B]
+==> qemu.ntrust: Get:47 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libexpat1-dev amd64 2.6.1-2ubuntu0.6 [147 kB]
+==> qemu.ntrust: Get:48 http://archive.ubuntu.com/ubuntu noble/main amd64 libjs-jquery all 3.6.1+dfsg+~3.5.14-1 [328 kB]
+==> qemu.ntrust: Get:49 http://archive.ubuntu.com/ubuntu noble/main amd64 libjs-underscore all 1.13.4~dfsg+~1.11.4-3 [118 kB]
+==> qemu.ntrust: Get:50 http://archive.ubuntu.com/ubuntu noble/main amd64 libjs-sphinxdoc all 7.2.6-6 [149 kB]
+==> qemu.ntrust: Get:51 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpciaccess0 amd64 0.17-3ubuntu0.24.04.3 [19.2 kB]
+==> qemu.ntrust: Get:52 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 nvidia-firmware-580-server-580.178.04 amd64 580.178.04-0ubuntu0.24.04.1 [76.0 MB]
+==> qemu.ntrust: Get:53 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 nvidia-kernel-common-580-server amd64 580.178.04-0ubuntu0.24.04.1 [786 kB]
+==> qemu.ntrust: Get:54 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 libnvidia-cfg1-580-server amd64 580.178.04-0ubuntu0.24.04.1 [161 kB]
+==> qemu.ntrust: Get:55 http://archive.ubuntu.com/ubuntu noble/universe amd64 ocl-icd-libopencl1 amd64 2.3.2-1build1 [38.5 kB]
+==> qemu.ntrust: Get:56 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 libnvidia-compute-580-server amd64 580.178.04-0ubuntu0.24.04.1 [59.4 MB]
+==> qemu.ntrust: Get:57 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpython3.12t64 amd64 3.12.3-1ubuntu0.17 [2348 kB]
+==> qemu.ntrust: Get:58 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 zlib1g-dev amd64 1:1.3.dfsg-3.1ubuntu2.2 [894 kB]
+==> qemu.ntrust: Get:59 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpython3.12-dev amd64 3.12.3-1ubuntu0.17 [5684 kB]
+==> qemu.ntrust: Get:60 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpython3-dev amd64 3.12.3-0ubuntu2.1 [10.3 kB]
+==> qemu.ntrust: Get:61 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-main-modules-zfs-7.0.0-38-generic amd64 7.0.0-38.38~24.04.4 [2398 kB]
+==> qemu.ntrust: Get:62 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-main-modules-v4l2loopback-7.0.0-38-generic amd64 7.0.0-38.38~24.04.4 [35.9 kB]
+==> qemu.ntrust: Get:63 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 wireless-regdb all 2026.05.30-0ubuntu1~24.04.1 [7714 B]
+==> qemu.ntrust: Get:64 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-modules-7.0.0-38-generic amd64 7.0.0-38.38~24.04.4 [166 MB]
+==> qemu.ntrust: Get:65 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-image-7.0.0-38-generic amd64 7.0.0-38.38~24.04.4 [16.7 MB]
+==> qemu.ntrust: Get:66 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-image-virtual-hwe-24.04 amd64 7.0.0-38.38~24.04.4 [2556 B]
+==> qemu.ntrust: Get:67 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 linux-modules-nvidia-580-server-open-7.0.0-38-generic amd64 7.0.0-38.38~24.04.4+1 [8289 kB]
+==> qemu.ntrust: Get:68 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 linux-modules-nvidia-580-server-open-generic-hwe-24.04 amd64 7.0.0-38.38~24.04.4+1 [6442 B]
+==> qemu.ntrust: Get:69 http://archive.ubuntu.com/ubuntu noble/universe amd64 ninja-build amd64 1.11.1-2 [129 kB]
+==> qemu.ntrust: Get:70 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 nvidia-compute-utils-580-server amd64 580.178.04-0ubuntu0.24.04.1 [130 kB]
+==> qemu.ntrust: Get:71 http://archive.ubuntu.com/ubuntu noble/multiverse amd64 nvidia-modprobe amd64 535.54.03-1 [15.1 kB]
+==> qemu.ntrust: Get:72 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 nvidia-utils-580-server amd64 580.178.04-0ubuntu0.24.04.1 [602 kB]
+==> qemu.ntrust: Get:73 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3.12-dev amd64 3.12.3-1ubuntu0.17 [498 kB]
+==> qemu.ntrust: Get:74 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3-dev amd64 3.12.3-0ubuntu2.1 [26.7 kB]
+==> qemu.ntrust: Get:75 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 python3-pip-whl all 24.0+dfsg-1ubuntu1.3 [1707 kB]
+==> qemu.ntrust: Get:76 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 python3-setuptools-whl all 68.1.2-2ubuntu1.2 [716 kB]
+==> qemu.ntrust: Get:77 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 python3.12-venv amd64 3.12.3-1ubuntu0.17 [5684 B]
+==> qemu.ntrust: Get:78 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 python3-venv amd64 3.12.3-0ubuntu2.1 [1032 B]
+==> qemu.ntrust: debconf: delaying package configuration, since apt-utils is not installed
+==> qemu.ntrust: Fetched 413 MB in 9s (44.5 MB/s)
+==> qemu.ntrust: Selecting previously unselected package libnl-3-200:amd64.
+==> qemu.ntrust: (Reading database ... 15240 files and directories currently installed.)
+==> qemu.ntrust: Preparing to unpack .../00-libnl-3-200_3.7.0-0.3build1.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libnl-3-200:amd64 (3.7.0-0.3build1.1) ...
+==> qemu.ntrust: Selecting previously unselected package libnl-route-3-200:amd64.
+==> qemu.ntrust: Preparing to unpack .../01-libnl-route-3-200_3.7.0-0.3build1.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libnl-route-3-200:amd64 (3.7.0-0.3build1.1) ...
+==> qemu.ntrust: Selecting previously unselected package libibverbs1:amd64.
+==> qemu.ntrust: Preparing to unpack .../02-libibverbs1_50.0-2ubuntu0.2_amd64.deb ...
+==> qemu.ntrust: Unpacking libibverbs1:amd64 (50.0-2ubuntu0.2) ...
+==> qemu.ntrust: Selecting previously unselected package libjansson4:amd64.
+==> qemu.ntrust: Preparing to unpack .../03-libjansson4_2.14-2build2_amd64.deb ...
+==> qemu.ntrust: Unpacking libjansson4:amd64 (2.14-2build2) ...
+==> qemu.ntrust: Selecting previously unselected package libnuma1:amd64.
+==> qemu.ntrust: Preparing to unpack .../04-libnuma1_2.0.18-1ubuntu0.24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libnuma1:amd64 (2.0.18-1ubuntu0.24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package binutils-common:amd64.
+==> qemu.ntrust: Preparing to unpack .../05-binutils-common_2.42-4ubuntu2.10_amd64.deb ...
+==> qemu.ntrust: Unpacking binutils-common:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Selecting previously unselected package libsframe1:amd64.
+==> qemu.ntrust: Preparing to unpack .../06-libsframe1_2.42-4ubuntu2.10_amd64.deb ...
+==> qemu.ntrust: Unpacking libsframe1:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Selecting previously unselected package libbinutils:amd64.
+==> qemu.ntrust: Preparing to unpack .../07-libbinutils_2.42-4ubuntu2.10_amd64.deb ...
+==> qemu.ntrust: Unpacking libbinutils:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Selecting previously unselected package libctf-nobfd0:amd64.
+==> qemu.ntrust: Preparing to unpack .../08-libctf-nobfd0_2.42-4ubuntu2.10_amd64.deb ...
+==> qemu.ntrust: Unpacking libctf-nobfd0:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Selecting previously unselected package libctf0:amd64.
+==> qemu.ntrust: Preparing to unpack .../09-libctf0_2.42-4ubuntu2.10_amd64.deb ...
+==> qemu.ntrust: Unpacking libctf0:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Selecting previously unselected package libgprofng0:amd64.
+==> qemu.ntrust: Preparing to unpack .../10-libgprofng0_2.42-4ubuntu2.10_amd64.deb ...
+==> qemu.ntrust: Unpacking libgprofng0:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Selecting previously unselected package binutils-x86-64-linux-gnu.
+==> qemu.ntrust: Preparing to unpack .../11-binutils-x86-64-linux-gnu_2.42-4ubuntu2.10_amd64.deb ...
+==> qemu.ntrust: Unpacking binutils-x86-64-linux-gnu (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Selecting previously unselected package binutils.
+==> qemu.ntrust: Preparing to unpack .../12-binutils_2.42-4ubuntu2.10_amd64.deb ...
+==> qemu.ntrust: Unpacking binutils (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Selecting previously unselected package gcc-13-base:amd64.
+==> qemu.ntrust: Preparing to unpack .../13-gcc-13-base_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking gcc-13-base:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libisl23:amd64.
+==> qemu.ntrust: Preparing to unpack .../14-libisl23_0.26-3build1.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libisl23:amd64 (0.26-3build1.1) ...
+==> qemu.ntrust: Selecting previously unselected package libmpfr6:amd64.
+==> qemu.ntrust: Preparing to unpack .../15-libmpfr6_4.2.1-1build1.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libmpfr6:amd64 (4.2.1-1build1.1) ...
+==> qemu.ntrust: Selecting previously unselected package libmpc3:amd64.
+==> qemu.ntrust: Preparing to unpack .../16-libmpc3_1.3.1-1build1.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libmpc3:amd64 (1.3.1-1build1.1) ...
+==> qemu.ntrust: Selecting previously unselected package cpp-13-x86-64-linux-gnu.
+==> qemu.ntrust: Preparing to unpack .../17-cpp-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking cpp-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package cpp-13.
+==> qemu.ntrust: Preparing to unpack .../18-cpp-13_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking cpp-13 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package cpp-x86-64-linux-gnu.
+==> qemu.ntrust: Preparing to unpack .../19-cpp-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb ...
+==> qemu.ntrust: Unpacking cpp-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: Selecting previously unselected package cpp.
+==> qemu.ntrust: Preparing to unpack .../20-cpp_4%3a13.2.0-7ubuntu1_amd64.deb ...
+==> qemu.ntrust: Unpacking cpp (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: Selecting previously unselected package libcc1-0:amd64.
+==> qemu.ntrust: Preparing to unpack .../21-libcc1-0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libcc1-0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libgomp1:amd64.
+==> qemu.ntrust: Preparing to unpack .../22-libgomp1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libgomp1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libitm1:amd64.
+==> qemu.ntrust: Preparing to unpack .../23-libitm1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libitm1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libatomic1:amd64.
+==> qemu.ntrust: Preparing to unpack .../24-libatomic1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libatomic1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libasan8:amd64.
+==> qemu.ntrust: Preparing to unpack .../25-libasan8_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libasan8:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package liblsan0:amd64.
+==> qemu.ntrust: Preparing to unpack .../26-liblsan0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking liblsan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libtsan2:amd64.
+==> qemu.ntrust: Preparing to unpack .../27-libtsan2_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libtsan2:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libubsan1:amd64.
+==> qemu.ntrust: Preparing to unpack .../28-libubsan1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libubsan1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libhwasan0:amd64.
+==> qemu.ntrust: Preparing to unpack .../29-libhwasan0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libhwasan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libquadmath0:amd64.
+==> qemu.ntrust: Preparing to unpack .../30-libquadmath0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libquadmath0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libgcc-13-dev:amd64.
+==> qemu.ntrust: Preparing to unpack .../31-libgcc-13-dev_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libgcc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package gcc-13-x86-64-linux-gnu.
+==> qemu.ntrust: Preparing to unpack .../32-gcc-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking gcc-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package gcc-13.
+==> qemu.ntrust: Preparing to unpack .../33-gcc-13_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking gcc-13 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package gcc-x86-64-linux-gnu.
+==> qemu.ntrust: Preparing to unpack .../34-gcc-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb ...
+==> qemu.ntrust: Unpacking gcc-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: Selecting previously unselected package gcc.
+==> qemu.ntrust: Preparing to unpack .../35-gcc_4%3a13.2.0-7ubuntu1_amd64.deb ...
+==> qemu.ntrust: Unpacking gcc (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: Selecting previously unselected package libc-dev-bin.
+==> qemu.ntrust: Preparing to unpack .../36-libc-dev-bin_2.39-0ubuntu8.9_amd64.deb ...
+==> qemu.ntrust: Unpacking libc-dev-bin (2.39-0ubuntu8.9) ...
+==> qemu.ntrust: Selecting previously unselected package linux-libc-dev:amd64.
+==> qemu.ntrust: Preparing to unpack .../37-linux-libc-dev_6.8.0-146.146_amd64.deb ...
+==> qemu.ntrust: Unpacking linux-libc-dev:amd64 (6.8.0-146.146) ...
+==> qemu.ntrust: Selecting previously unselected package libcrypt-dev:amd64.
+==> qemu.ntrust: Preparing to unpack .../38-libcrypt-dev_1%3a4.4.36-4build1_amd64.deb ...
+==> qemu.ntrust: Unpacking libcrypt-dev:amd64 (1:4.4.36-4build1) ...
+==> qemu.ntrust: Selecting previously unselected package rpcsvc-proto.
+==> qemu.ntrust: Preparing to unpack .../39-rpcsvc-proto_1.4.2-0ubuntu7_amd64.deb ...
+==> qemu.ntrust: Unpacking rpcsvc-proto (1.4.2-0ubuntu7) ...
+==> qemu.ntrust: Selecting previously unselected package libc6-dev:amd64.
+==> qemu.ntrust: Preparing to unpack .../40-libc6-dev_2.39-0ubuntu8.9_amd64.deb ...
+==> qemu.ntrust: Unpacking libc6-dev:amd64 (2.39-0ubuntu8.9) ...
+==> qemu.ntrust: Selecting previously unselected package libstdc++-13-dev:amd64.
+==> qemu.ntrust: Preparing to unpack .../41-libstdc++-13-dev_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libstdc++-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package g++-13-x86-64-linux-gnu.
+==> qemu.ntrust: Preparing to unpack .../42-g++-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking g++-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package g++-13.
+==> qemu.ntrust: Preparing to unpack .../43-g++-13_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking g++-13 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package g++-x86-64-linux-gnu.
+==> qemu.ntrust: Preparing to unpack .../44-g++-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb ...
+==> qemu.ntrust: Unpacking g++-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: Selecting previously unselected package g++.
+==> qemu.ntrust: Preparing to unpack .../45-g++_4%3a13.2.0-7ubuntu1_amd64.deb ...
+==> qemu.ntrust: Unpacking g++ (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: Selecting previously unselected package libexpat1-dev:amd64.
+==> qemu.ntrust: Preparing to unpack .../46-libexpat1-dev_2.6.1-2ubuntu0.6_amd64.deb ...
+==> qemu.ntrust: Unpacking libexpat1-dev:amd64 (2.6.1-2ubuntu0.6) ...
+==> qemu.ntrust: Selecting previously unselected package libjs-jquery.
+==> qemu.ntrust: Preparing to unpack .../47-libjs-jquery_3.6.1+dfsg+~3.5.14-1_all.deb ...
+==> qemu.ntrust: Unpacking libjs-jquery (3.6.1+dfsg+~3.5.14-1) ...
+==> qemu.ntrust: Selecting previously unselected package libjs-underscore.
+==> qemu.ntrust: Preparing to unpack .../48-libjs-underscore_1.13.4~dfsg+~1.11.4-3_all.deb ...
+==> qemu.ntrust: Unpacking libjs-underscore (1.13.4~dfsg+~1.11.4-3) ...
+==> qemu.ntrust: Selecting previously unselected package libjs-sphinxdoc.
+==> qemu.ntrust: Preparing to unpack .../49-libjs-sphinxdoc_7.2.6-6_all.deb ...
+==> qemu.ntrust: Unpacking libjs-sphinxdoc (7.2.6-6) ...
+==> qemu.ntrust: Selecting previously unselected package libpciaccess0:amd64.
+==> qemu.ntrust: Preparing to unpack .../50-libpciaccess0_0.17-3ubuntu0.24.04.3_amd64.deb ...
+==> qemu.ntrust: Unpacking libpciaccess0:amd64 (0.17-3ubuntu0.24.04.3) ...
+==> qemu.ntrust: Selecting previously unselected package nvidia-firmware-580-server-580.178.04.
+==> qemu.ntrust: Preparing to unpack .../51-nvidia-firmware-580-server-580.178.04_580.178.04-0ubuntu0.24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking nvidia-firmware-580-server-580.178.04 (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package nvidia-kernel-common-580-server.
+==> qemu.ntrust: Preparing to unpack .../52-nvidia-kernel-common-580-server_580.178.04-0ubuntu0.24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking nvidia-kernel-common-580-server (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libnvidia-cfg1-580-server:amd64.
+==> qemu.ntrust: Preparing to unpack .../53-libnvidia-cfg1-580-server_580.178.04-0ubuntu0.24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libnvidia-cfg1-580-server:amd64 (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package ocl-icd-libopencl1:amd64.
+==> qemu.ntrust: Preparing to unpack .../54-ocl-icd-libopencl1_2.3.2-1build1_amd64.deb ...
+==> qemu.ntrust: Unpacking ocl-icd-libopencl1:amd64 (2.3.2-1build1) ...
+==> qemu.ntrust: Selecting previously unselected package libnvidia-compute-580-server:amd64.
+==> qemu.ntrust: Preparing to unpack .../55-libnvidia-compute-580-server_580.178.04-0ubuntu0.24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libnvidia-compute-580-server:amd64 (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package libpython3.12t64:amd64.
+==> qemu.ntrust: Preparing to unpack .../56-libpython3.12t64_3.12.3-1ubuntu0.17_amd64.deb ...
+==> qemu.ntrust: Unpacking libpython3.12t64:amd64 (3.12.3-1ubuntu0.17) ...
+==> qemu.ntrust: Selecting previously unselected package zlib1g-dev:amd64.
+==> qemu.ntrust: Preparing to unpack .../57-zlib1g-dev_1%3a1.3.dfsg-3.1ubuntu2.2_amd64.deb ...
+==> qemu.ntrust: Unpacking zlib1g-dev:amd64 (1:1.3.dfsg-3.1ubuntu2.2) ...
+==> qemu.ntrust: Selecting previously unselected package libpython3.12-dev:amd64.
+==> qemu.ntrust: Preparing to unpack .../58-libpython3.12-dev_3.12.3-1ubuntu0.17_amd64.deb ...
+==> qemu.ntrust: Unpacking libpython3.12-dev:amd64 (3.12.3-1ubuntu0.17) ...
+==> qemu.ntrust: Selecting previously unselected package libpython3-dev:amd64.
+==> qemu.ntrust: Preparing to unpack .../59-libpython3-dev_3.12.3-0ubuntu2.1_amd64.deb ...
+==> qemu.ntrust: Unpacking libpython3-dev:amd64 (3.12.3-0ubuntu2.1) ...
+==> qemu.ntrust: Selecting previously unselected package linux-main-modules-zfs-7.0.0-38-generic.
+==> qemu.ntrust: Preparing to unpack .../60-linux-main-modules-zfs-7.0.0-38-generic_7.0.0-38.38~24.04.4_amd64.deb ...
+==> qemu.ntrust: Unpacking linux-main-modules-zfs-7.0.0-38-generic (7.0.0-38.38~24.04.4) ...
+==> qemu.ntrust: Selecting previously unselected package linux-main-modules-v4l2loopback-7.0.0-38-generic.
+==> qemu.ntrust: Preparing to unpack .../61-linux-main-modules-v4l2loopback-7.0.0-38-generic_7.0.0-38.38~24.04.4_amd64.deb ...
+==> qemu.ntrust: Unpacking linux-main-modules-v4l2loopback-7.0.0-38-generic (7.0.0-38.38~24.04.4) ...
+==> qemu.ntrust: Selecting previously unselected package wireless-regdb.
+==> qemu.ntrust: Preparing to unpack .../62-wireless-regdb_2026.05.30-0ubuntu1~24.04.1_all.deb ...
+==> qemu.ntrust: Unpacking wireless-regdb (2026.05.30-0ubuntu1~24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package linux-modules-7.0.0-38-generic.
+==> qemu.ntrust: Preparing to unpack .../63-linux-modules-7.0.0-38-generic_7.0.0-38.38~24.04.4_amd64.deb ...
+==> qemu.ntrust: Unpacking linux-modules-7.0.0-38-generic (7.0.0-38.38~24.04.4) ...
+==> qemu.ntrust: Selecting previously unselected package linux-image-7.0.0-38-generic.
+==> qemu.ntrust: Preparing to unpack .../64-linux-image-7.0.0-38-generic_7.0.0-38.38~24.04.4_amd64.deb ...
+==> qemu.ntrust: Unpacking linux-image-7.0.0-38-generic (7.0.0-38.38~24.04.4) ...
+==> qemu.ntrust: Selecting previously unselected package linux-image-virtual-hwe-24.04.
+==> qemu.ntrust: Preparing to unpack .../65-linux-image-virtual-hwe-24.04_7.0.0-38.38~24.04.4_amd64.deb ...
+==> qemu.ntrust: Unpacking linux-image-virtual-hwe-24.04 (7.0.0-38.38~24.04.4) ...
+==> qemu.ntrust: Selecting previously unselected package linux-modules-nvidia-580-server-open-7.0.0-38-generic.
+==> qemu.ntrust: Preparing to unpack .../66-linux-modules-nvidia-580-server-open-7.0.0-38-generic_7.0.0-38.38~24.04.4+1_amd64.deb ...
+==> qemu.ntrust: Unpacking linux-modules-nvidia-580-server-open-7.0.0-38-generic (7.0.0-38.38~24.04.4+1) ...
+==> qemu.ntrust: Selecting previously unselected package linux-modules-nvidia-580-server-open-generic-hwe-24.04.
+==> qemu.ntrust: Preparing to unpack .../67-linux-modules-nvidia-580-server-open-generic-hwe-24.04_7.0.0-38.38~24.04.4+1_amd64.deb ...
+==> qemu.ntrust: Unpacking linux-modules-nvidia-580-server-open-generic-hwe-24.04 (7.0.0-38.38~24.04.4+1) ...
+==> qemu.ntrust: Selecting previously unselected package ninja-build.
+==> qemu.ntrust: Preparing to unpack .../68-ninja-build_1.11.1-2_amd64.deb ...
+==> qemu.ntrust: Unpacking ninja-build (1.11.1-2) ...
+==> qemu.ntrust: Selecting previously unselected package nvidia-compute-utils-580-server.
+==> qemu.ntrust: Preparing to unpack .../69-nvidia-compute-utils-580-server_580.178.04-0ubuntu0.24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking nvidia-compute-utils-580-server (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package nvidia-modprobe.
+==> qemu.ntrust: Preparing to unpack .../70-nvidia-modprobe_535.54.03-1_amd64.deb ...
+==> qemu.ntrust: Unpacking nvidia-modprobe (535.54.03-1) ...
+==> qemu.ntrust: Selecting previously unselected package nvidia-utils-580-server.
+==> qemu.ntrust: Preparing to unpack .../71-nvidia-utils-580-server_580.178.04-0ubuntu0.24.04.1_amd64.deb ...
+==> qemu.ntrust: Unpacking nvidia-utils-580-server (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: Selecting previously unselected package python3.12-dev.
+==> qemu.ntrust: Preparing to unpack .../72-python3.12-dev_3.12.3-1ubuntu0.17_amd64.deb ...
+==> qemu.ntrust: Unpacking python3.12-dev (3.12.3-1ubuntu0.17) ...
+==> qemu.ntrust: Selecting previously unselected package python3-dev.
+==> qemu.ntrust: Preparing to unpack .../73-python3-dev_3.12.3-0ubuntu2.1_amd64.deb ...
+==> qemu.ntrust: Unpacking python3-dev (3.12.3-0ubuntu2.1) ...
+==> qemu.ntrust: Selecting previously unselected package python3-pip-whl.
+==> qemu.ntrust: Preparing to unpack .../74-python3-pip-whl_24.0+dfsg-1ubuntu1.3_all.deb ...
+==> qemu.ntrust: Unpacking python3-pip-whl (24.0+dfsg-1ubuntu1.3) ...
+==> qemu.ntrust: Selecting previously unselected package python3-setuptools-whl.
+==> qemu.ntrust: Preparing to unpack .../75-python3-setuptools-whl_68.1.2-2ubuntu1.2_all.deb ...
+==> qemu.ntrust: Unpacking python3-setuptools-whl (68.1.2-2ubuntu1.2) ...
+==> qemu.ntrust: Selecting previously unselected package python3.12-venv.
+==> qemu.ntrust: Preparing to unpack .../76-python3.12-venv_3.12.3-1ubuntu0.17_amd64.deb ...
+==> qemu.ntrust: Unpacking python3.12-venv (3.12.3-1ubuntu0.17) ...
+==> qemu.ntrust: Selecting previously unselected package python3-venv.
+==> qemu.ntrust: Preparing to unpack .../77-python3-venv_3.12.3-0ubuntu2.1_amd64.deb ...
+==> qemu.ntrust: Unpacking python3-venv (3.12.3-0ubuntu2.1) ...
+==> qemu.ntrust: Setting up libpciaccess0:amd64 (0.17-3ubuntu0.24.04.3) ...
+==> qemu.ntrust: Setting up python3-setuptools-whl (68.1.2-2ubuntu1.2) ...
+==> qemu.ntrust: Setting up python3-pip-whl (24.0+dfsg-1ubuntu1.3) ...
+==> qemu.ntrust: Setting up wireless-regdb (2026.05.30-0ubuntu1~24.04.1) ...
+==> qemu.ntrust: Setting up binutils-common:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Setting up linux-libc-dev:amd64 (6.8.0-146.146) ...
+==> qemu.ntrust: Setting up libctf-nobfd0:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Setting up libgomp1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up nvidia-firmware-580-server-580.178.04 (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: Setting up libsframe1:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Setting up ninja-build (1.11.1-2) ...
+==> qemu.ntrust: Setting up libjansson4:amd64 (2.14-2build2) ...
+==> qemu.ntrust: Setting up nvidia-modprobe (535.54.03-1) ...
+==> qemu.ntrust: Setting up libpython3.12t64:amd64 (3.12.3-1ubuntu0.17) ...
+==> qemu.ntrust: Setting up rpcsvc-proto (1.4.2-0ubuntu7) ...
+==> qemu.ntrust: Setting up gcc-13-base:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up libmpfr6:amd64 (4.2.1-1build1.1) ...
+==> qemu.ntrust: Setting up libquadmath0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up libmpc3:amd64 (1.3.1-1build1.1) ...
+==> qemu.ntrust: Setting up libatomic1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up nvidia-kernel-common-580-server (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: update-initramfs: deferring update (trigger activated)
+==> qemu.ntrust: update-initramfs: Generating /boot/initrd.img-6.8.0-146-generic
+==> qemu.ntrust: W: No zstd in /usr/bin:/sbin:/bin, using gzip
+==> qemu.ntrust: Created symlink /etc/systemd/system/systemd-hibernate.service.wants/nvidia-hibernate.service → /usr/lib/systemd/system/nvidia-hibernate.service.
+==> qemu.ntrust: Created symlink /etc/systemd/system/systemd-suspend.service.wants/nvidia-resume.service → /usr/lib/systemd/system/nvidia-resume.service.
+==> qemu.ntrust: Created symlink /etc/systemd/system/systemd-hibernate.service.wants/nvidia-resume.service → /usr/lib/systemd/system/nvidia-resume.service.
+==> qemu.ntrust: Created symlink /etc/systemd/system/systemd-suspend-then-hibernate.service.wants/nvidia-resume.service → /usr/lib/systemd/system/nvidia-resume.service.
+==> qemu.ntrust: Created symlink /etc/systemd/system/systemd-suspend.service.wants/nvidia-suspend.service → /usr/lib/systemd/system/nvidia-suspend.service.
+==> qemu.ntrust: Setting up libubsan1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up libnuma1:amd64 (2.0.18-1ubuntu0.24.04.1) ...
+==> qemu.ntrust: Setting up ocl-icd-libopencl1:amd64 (2.3.2-1build1) ...
+==> qemu.ntrust: Setting up libhwasan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up libcrypt-dev:amd64 (1:4.4.36-4build1) ...
+==> qemu.ntrust: Setting up libasan8:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up libnl-3-200:amd64 (3.7.0-0.3build1.1) ...
+==> qemu.ntrust: Setting up libtsan2:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up libjs-jquery (3.6.1+dfsg+~3.5.14-1) ...
+==> qemu.ntrust: Setting up libbinutils:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Setting up libisl23:amd64 (0.26-3build1.1) ...
+==> qemu.ntrust: Setting up libc-dev-bin (2.39-0ubuntu8.9) ...
+==> qemu.ntrust: Setting up libcc1-0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up liblsan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up libitm1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up libjs-underscore (1.13.4~dfsg+~1.11.4-3) ...
+==> qemu.ntrust: Setting up libctf0:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Setting up python3.12-venv (3.12.3-1ubuntu0.17) ...
+==> qemu.ntrust: Setting up cpp-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up libnvidia-cfg1-580-server:amd64 (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: Setting up libnl-route-3-200:amd64 (3.7.0-0.3build1.1) ...
+==> qemu.ntrust: Setting up libgprofng0:amd64 (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Setting up python3-venv (3.12.3-0ubuntu2.1) ...
+==> qemu.ntrust: Setting up libnvidia-compute-580-server:amd64 (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: Setting up libjs-sphinxdoc (7.2.6-6) ...
+==> qemu.ntrust: Setting up libgcc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up libc6-dev:amd64 (2.39-0ubuntu8.9) ...
+==> qemu.ntrust: Setting up nvidia-utils-580-server (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: Setting up libstdc++-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up binutils-x86-64-linux-gnu (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Setting up cpp-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: Setting up libibverbs1:amd64 (50.0-2ubuntu0.2) ...
+==> qemu.ntrust: Setting up cpp-13 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up gcc-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up binutils (2.42-4ubuntu2.10) ...
+==> qemu.ntrust: Setting up libexpat1-dev:amd64 (2.6.1-2ubuntu0.6) ...
+==> qemu.ntrust: Setting up nvidia-compute-utils-580-server (580.178.04-0ubuntu0.24.04.1) ...
+==> qemu.ntrust: info: The home dir /nonexistent you specified can't be accessed: No such file or directory
+==> qemu.ntrust:
+==> qemu.ntrust: info: Selecting UID from range 100 to 999 ...
+==> qemu.ntrust:
+==> qemu.ntrust: info: Selecting GID from range 100 to 999 ...
+==> qemu.ntrust: info: Adding system user `nvidia-persistenced' (UID 104) ...
+==> qemu.ntrust: info: Adding new group `nvidia-persistenced' (GID 107) ...
+==> qemu.ntrust: info: Adding new user `nvidia-persistenced' (UID 104) with group `nvidia-persistenced' ...
+==> qemu.ntrust: info: Not creating `/nonexistent'.
+==> qemu.ntrust: Setting up gcc-13 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up zlib1g-dev:amd64 (1:1.3.dfsg-3.1ubuntu2.2) ...
+==> qemu.ntrust: Setting up cpp (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: Setting up g++-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up gcc-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: Setting up libpython3.12-dev:amd64 (3.12.3-1ubuntu0.17) ...
+==> qemu.ntrust: Setting up gcc (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: Setting up python3.12-dev (3.12.3-1ubuntu0.17) ...
+==> qemu.ntrust: Setting up g++-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: Setting up g++-13 (13.3.0-6ubuntu2~24.04.1) ...
+==> qemu.ntrust: Setting up libpython3-dev:amd64 (3.12.3-0ubuntu2.1) ...
+==> qemu.ntrust: Setting up python3-dev (3.12.3-0ubuntu2.1) ...
+==> qemu.ntrust: Setting up g++ (4:13.2.0-7ubuntu1) ...
+==> qemu.ntrust: update-alternatives: using /usr/bin/g++ to provide /usr/bin/c++ (c++) in auto mode
+==> qemu.ntrust: update-alternatives: warning: skip creation of /usr/share/man/man1/c++.1.gz because associated file /usr/share/man/man1/g++.1.gz (of link group c++) doesn't exist
+==> qemu.ntrust: Setting up linux-image-7.0.0-38-generic (7.0.0-38.38~24.04.4) ...
+==> qemu.ntrust: I: /boot/initrd.img.old is now a symlink to initrd.img-6.8.0-146-generic
+==> qemu.ntrust: I: /boot/vmlinuz is now a symlink to vmlinuz-7.0.0-38-generic
+==> qemu.ntrust: I: /boot/initrd.img is now a symlink to initrd.img-7.0.0-38-generic
+==> qemu.ntrust: Setting up linux-main-modules-v4l2loopback-7.0.0-38-generic (7.0.0-38.38~24.04.4) ...
+==> qemu.ntrust: Setting up linux-main-modules-zfs-7.0.0-38-generic (7.0.0-38.38~24.04.4) ...
+==> qemu.ntrust: Setting up linux-image-virtual-hwe-24.04 (7.0.0-38.38~24.04.4) ...
+==> qemu.ntrust: Setting up linux-modules-nvidia-580-server-open-7.0.0-38-generic (7.0.0-38.38~24.04.4+1) ...
+==> qemu.ntrust: Setting up linux-modules-nvidia-580-server-open-generic-hwe-24.04 (7.0.0-38.38~24.04.4+1) ...
+==> qemu.ntrust: Setting up linux-modules-7.0.0-38-generic (7.0.0-38.38~24.04.4) ...
+==> qemu.ntrust: Processing triggers for initramfs-tools (0.142ubuntu25.8) ...
+==> qemu.ntrust: update-initramfs: Generating /boot/initrd.img-6.8.0-146-generic
+==> qemu.ntrust: W: No zstd in /usr/bin:/sbin:/bin, using gzip
+==> qemu.ntrust: Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+==> qemu.ntrust: Processing triggers for linux-image-7.0.0-38-generic (7.0.0-38.38~24.04.4) ...
+==> qemu.ntrust: /etc/kernel/postinst.d/initramfs-tools:
+==> qemu.ntrust: update-initramfs: Generating /boot/initrd.img-7.0.0-38-generic
+==> qemu.ntrust: W: No zstd in /usr/bin:/sbin:/bin, using gzip
+==> qemu.ntrust: /etc/kernel/postinst.d/zz-update-grub:
+==> qemu.ntrust: Sourcing file `/etc/default/grub'
+==> qemu.ntrust: Sourcing file `/etc/default/grub.d/40-force-partuuid.cfg'
+==> qemu.ntrust: Sourcing file `/etc/default/grub.d/50-cloudimg-settings.cfg'
+==> qemu.ntrust: Generating grub configuration file ...
+==> qemu.ntrust: GRUB_FORCE_PARTUUID is set, will attempt initrdless boot
+==> qemu.ntrust: Found linux image: /boot/vmlinuz-7.0.0-38-generic
+==> qemu.ntrust: Found initrd image: /boot/microcode.cpio /boot/initrd.img-7.0.0-38-generic
+==> qemu.ntrust: Found linux image: /boot/vmlinuz-6.8.0-146-generic
+==> qemu.ntrust: Found initrd image: /boot/microcode.cpio /boot/initrd.img-6.8.0-146-generic
+==> qemu.ntrust: Adding boot menu entry for UEFI Firmware Settings ...
+==> qemu.ntrust: done
+==> qemu.ntrust: Reading package lists...
+==> qemu.ntrust: Building dependency tree...
+==> qemu.ntrust: Reading state information...
+==> qemu.ntrust: Package 'walinuxagent' is not installed, so not removed
+==> qemu.ntrust: Package 'linux-image-generic' is not installed, so not removed
+==> qemu.ntrust: Package 'linux-firmware' is not installed, so not removed
+==> qemu.ntrust: The following packages will be REMOVED:
+==> qemu.ntrust:   apport* apport-core-dump-handler* console-setup* console-setup-linux*
+==> qemu.ntrust:   distro-info* gir1.2-girepository-2.0* gir1.2-glib-2.0* kbd*
+==> qemu.ntrust:   keyboard-configuration* libdrm-common* libdrm2* libgirepository-1.0-1*
+==> qemu.ntrust:   liblzo2-2* libusb-1.0-0* lxd-agent-loader* lxd-installer* pollinate*
+==> qemu.ntrust:   python3-apport* python3-click* python3-colorama* python3-dbus*
+==> qemu.ntrust:   python3-distro* python3-distro-info* python3-distupgrade* python3-gi*
+==> qemu.ntrust:   python3-httplib2* python3-launchpadlib* python3-lazr.restfulclient*
+==> qemu.ntrust:   python3-lazr.uri* python3-problem-report* python3-pyparsing* python3-six*
+==> qemu.ntrust:   python3-update-manager* python3-wadllib* python3-xkit* snapd*
+==> qemu.ntrust:   squashfs-tools* ssh-import-id* ubuntu-cloud-minimal* ubuntu-drivers-common*
+==> qemu.ntrust:   ubuntu-pro-client* ubuntu-release-upgrader-core* unattended-upgrades*
+==> qemu.ntrust:   unminimize* usbutils* wget* xkb-data* xxd*
+==> qemu.ntrust: 0 upgraded, 0 newly installed, 48 to remove and 0 not upgraded.
+==> qemu.ntrust: After this operation, 156 MB disk space will be freed.
+==> qemu.ntrust: (Reading database ... 27188 files and directories currently installed.)
+==> qemu.ntrust: Removing ubuntu-cloud-minimal (1.539.2) ...
+==> qemu.ntrust: Removing ubuntu-pro-client (37.2ubuntu~24.04.1) ...
+==> qemu.ntrust: Removing distro-info (1.7build1) ...
+==> qemu.ntrust: Removing ubuntu-drivers-common (1:0.9.7.6ubuntu3.7) ...
+==> qemu.ntrust: Removing libdrm2:amd64 (2.4.125-1ubuntu0.1~24.04.2) ...
+==> qemu.ntrust: Removing libdrm-common (2.4.125-1ubuntu0.1~24.04.2) ...
+==> qemu.ntrust: Removing snapd (2.76.3+ubuntu24.04) ...
+==> qemu.ntrust: Stopping 'snapd.service', but its triggering units are still active:
+==> qemu.ntrust: snapd.socket
+==> qemu.ntrust: Removing squashfs-tools (1:4.6.1-1build1) ...
+==> qemu.ntrust: Removing liblzo2-2:amd64 (2.10-2build4) ...
+==> qemu.ntrust: Removing usbutils (1:017-3build1) ...
+==> qemu.ntrust: Removing libusb-1.0-0:amd64 (2:1.0.27-1) ...
+==> qemu.ntrust: Removing lxd-agent-loader (0.7ubuntu0.1) ...
+==> qemu.ntrust: Removing lxd-installer (4ubuntu0.1) ...
+==> qemu.ntrust: Removing pollinate (4.33-3.1ubuntu1.3) ...
+==> qemu.ntrust: Removing python3-click (8.1.6-2) ...
+==> qemu.ntrust: Removing python3-colorama (0.4.6-4) ...
+==> qemu.ntrust: Removing ubuntu-release-upgrader-core (1:24.04.29) ...
+==> qemu.ntrust: Removing unattended-upgrades (2.9.1+nmu4ubuntu1) ...
+==> qemu.ntrust: Removing ssh-import-id (5.11-0ubuntu2.24.04.1) ...
+==> qemu.ntrust: Removing python3-xkit (0.5.0ubuntu6) ...
+==> qemu.ntrust: Removing unminimize (0.2.1) ...
+==> qemu.ntrust: Removing wget (1.21.4-1ubuntu4.5) ...
+==> qemu.ntrust: Removing xxd (2:9.1.0016-1ubuntu7.20) ...
+==> qemu.ntrust: Removing console-setup (1.226ubuntu1.1) ...
+==> qemu.ntrust: Removing python3-distupgrade (1:24.04.29) ...
+==> qemu.ntrust: Removing python3-dbus (1.3.2-5build3) ...
+==> qemu.ntrust: Removing apport (2.28.3-0ubuntu0.1) ...
+==> qemu.ntrust: Removing apport-core-dump-handler (2.28.3-0ubuntu0.1) ...
+==> qemu.ntrust: Removing console-setup-linux (1.226ubuntu1.1) ...
+==> qemu.ntrust: update-alternatives: using /etc/console-setup/vtrgb.vga to provide /etc/vtrgb (vtrgb) in auto mode
+==> qemu.ntrust: Removing kbd (2.6.4-2ubuntu2) ...
+==> qemu.ntrust: Removing python3-gi (3.48.2-1) ...
+==> qemu.ntrust: Removing gir1.2-girepository-2.0:amd64 (1.80.1-1) ...
+==> qemu.ntrust: Removing gir1.2-glib-2.0:amd64 (2.80.0-6ubuntu3.9) ...
+==> qemu.ntrust: Removing keyboard-configuration (1.226ubuntu1.1) ...
+==> qemu.ntrust: Removing libgirepository-1.0-1:amd64 (1.80.1-1) ...
+==> qemu.ntrust: Removing python3-apport (2.28.3-0ubuntu0.1) ...
+==> qemu.ntrust: Removing python3-update-manager (1:24.04.12) ...
+==> qemu.ntrust: Removing python3-launchpadlib (1.11.0-6) ...
+==> qemu.ntrust: Removing python3-lazr.restfulclient (0.14.6-1) ...
+==> qemu.ntrust: Removing python3-distro (1.9.0-1) ...
+==> qemu.ntrust: Removing python3-distro-info (1.7build1) ...
+==> qemu.ntrust: Removing python3-httplib2 (0.20.4-3ubuntu0.1) ...
+==> qemu.ntrust: Removing python3-wadllib (1.3.6-5) ...
+==> qemu.ntrust: Removing python3-lazr.uri (1.0.6-3) ...
+==> qemu.ntrust: Removing python3-problem-report (2.28.3-0ubuntu0.1) ...
+==> qemu.ntrust: Removing python3-pyparsing (3.1.1-1) ...
+==> qemu.ntrust: Removing python3-six (1.16.0-4) ...
+==> qemu.ntrust: Removing xkb-data (2.41-2ubuntu1.1) ...
+==> qemu.ntrust: Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+==> qemu.ntrust: Processing triggers for dbus (1.14.10-4ubuntu4.1) ...
+==> qemu.ntrust: Processing triggers for initramfs-tools (0.142ubuntu25.8) ...
+==> qemu.ntrust: update-initramfs: Generating /boot/initrd.img-7.0.0-38-generic
+==> qemu.ntrust: W: No zstd in /usr/bin:/sbin:/bin, using gzip
+==> qemu.ntrust: (Reading database ... 25060 files and directories currently installed.)
+==> qemu.ntrust: Purging configuration files for snapd (2.76.3+ubuntu24.04) ...
+==> qemu.ntrust: rmdir: failed to remove '/etc/systemd/system/snapd.mounts.target.wants': No such file or directory
+==> qemu.ntrust: Discarding preserved snap namespaces
+==> qemu.ntrust: Final directory cleanup
+==> qemu.ntrust: Removing extra snap-confine apparmor rules
+==> qemu.ntrust: Removing snapd cache
+==> qemu.ntrust: Removing snapd state
+==> qemu.ntrust: Purging configuration files for console-setup (1.226ubuntu1.1) ...
+==> qemu.ntrust: Purging configuration files for lxd-agent-loader (0.7ubuntu0.1) ...
+==> qemu.ntrust: Purging configuration files for wget (1.21.4-1ubuntu4.5) ...
+==> qemu.ntrust: Purging configuration files for ubuntu-drivers-common (1:0.9.7.6ubuntu3.7) ...
+==> qemu.ntrust: Purging configuration files for ssh-import-id (5.11-0ubuntu2.24.04.1) ...
+==> qemu.ntrust: Purging configuration files for python3-launchpadlib (1.11.0-6) ...
+==> qemu.ntrust: Purging configuration files for apport-core-dump-handler (2.28.3-0ubuntu0.1) ...
+==> qemu.ntrust: Purging configuration files for apport (2.28.3-0ubuntu0.1) ...
+==> qemu.ntrust: Purging configuration files for unattended-upgrades (2.9.1+nmu4ubuntu1) ...
+==> qemu.ntrust: dpkg: warning: while removing unattended-upgrades, directory '/var/log/unattended-upgrades' not empty so not removed
+==> qemu.ntrust: Purging configuration files for pollinate (4.33-3.1ubuntu1.3) ...
+==> qemu.ntrust: warn: `/usr/bin/crontab' not executed. Skipping crontab removal. Package `cron' required.
+==> qemu.ntrust: Purging configuration files for ubuntu-release-upgrader-core (1:24.04.29) ...
+==> qemu.ntrust: dpkg: warning: while removing ubuntu-release-upgrader-core, directory '/var/lib/ubuntu-release-upgrader' not empty so not removed
+==> qemu.ntrust: Purging configuration files for lxd-installer (4ubuntu0.1) ...
+==> qemu.ntrust: Purging configuration files for console-setup-linux (1.226ubuntu1.1) ...
+==> qemu.ntrust: dpkg: warning: while removing console-setup-linux, directory '/etc/console-setup' not empty so not removed
+==> qemu.ntrust: Purging configuration files for keyboard-configuration (1.226ubuntu1.1) ...
+==> qemu.ntrust: Purging configuration files for ubuntu-pro-client (37.2ubuntu~24.04.1) ...
+==> qemu.ntrust: Reading package lists...
+==> qemu.ntrust: Building dependency tree...
+==> qemu.ntrust: Reading state information...
+==> qemu.ntrust: Package 'linux-virtual' is not installed, so not removed
+==> qemu.ntrust: The following packages will be REMOVED:
+==> qemu.ntrust:   linux-image-6.8.0-146-generic* linux-image-virtual*
+==> qemu.ntrust:   linux-modules-6.8.0-146-generic*
+==> qemu.ntrust: 0 upgraded, 0 newly installed, 3 to remove and 0 not upgraded.
+==> qemu.ntrust: After this operation, 54.5 MB disk space will be freed.
+==> qemu.ntrust: (Reading database ... 24983 files and directories currently installed.)
+==> qemu.ntrust: Removing linux-image-virtual (6.8.0-146.146) ...
+==> qemu.ntrust: Removing linux-image-6.8.0-146-generic (6.8.0-146.146) ...
+==> qemu.ntrust: W: Removing the running kernel
+==> qemu.ntrust: I: /boot/vmlinuz.old is now a symlink to vmlinuz-7.0.0-38-generic
+==> qemu.ntrust: I: /boot/initrd.img.old is now a symlink to initrd.img-7.0.0-38-generic
+==> qemu.ntrust: /etc/kernel/postrm.d/initramfs-tools:
+==> qemu.ntrust: update-initramfs: Deleting /boot/initrd.img-6.8.0-146-generic
+==> qemu.ntrust: /etc/kernel/postrm.d/zz-update-grub:
+==> qemu.ntrust: Sourcing file `/etc/default/grub'
+==> qemu.ntrust: Sourcing file `/etc/default/grub.d/40-force-partuuid.cfg'
+==> qemu.ntrust: Sourcing file `/etc/default/grub.d/50-cloudimg-settings.cfg'
+==> qemu.ntrust: Generating grub configuration file ...
+==> qemu.ntrust: GRUB_FORCE_PARTUUID is set, will attempt initrdless boot
+==> qemu.ntrust: Found linux image: /boot/vmlinuz-7.0.0-38-generic
+==> qemu.ntrust: Found initrd image: /boot/microcode.cpio /boot/initrd.img-7.0.0-38-generic
+==> qemu.ntrust: Adding boot menu entry for UEFI Firmware Settings ...
+==> qemu.ntrust: done
+==> qemu.ntrust: Removing linux-modules-6.8.0-146-generic (6.8.0-146.146) ...
+==> qemu.ntrust: (Reading database ... 23673 files and directories currently installed.)
+==> qemu.ntrust: Purging configuration files for linux-modules-6.8.0-146-generic (6.8.0-146.146) ...
+==> qemu.ntrust: dpkg: warning: while removing linux-modules-6.8.0-146-generic, directory '/lib/modules/6.8.0-146-generic' not empty so not removed
+==> qemu.ntrust: Purging configuration files for linux-image-6.8.0-146-generic (6.8.0-146.146) ...
+==> qemu.ntrust: Unit nginx.service does not exist, proceeding anyway.
+==> qemu.ntrust: Unit nginx-debug.service does not exist, proceeding anyway.
+==> qemu.ntrust: Created symlink /etc/systemd/system/nginx.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/nginx-debug.service → /dev/null.
+==> qemu.ntrust:   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+==> qemu.ntrust:                                  Dload  Upload   Total   Spent    Left  Speed
+==> qemu.ntrust: 100 1179k  100 1179k    0     0  1355k      0 --:--:-- --:--:-- --:--:-- 1355k
+==> qemu.ntrust:   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+==> qemu.ntrust:                                  Dload  Upload   Total   Spent    Left  Speed
+==> qemu.ntrust: 100 2273k  100 2273k    0     0  2294k      0 --:--:-- --:--:-- --:--:-- 2294k
+==> qemu.ntrust:   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+==> qemu.ntrust:                                  Dload  Upload   Total   Spent    Left  Speed
+==> qemu.ntrust: 100 6007k  100 6007k    0     0  12.5M      0 --:--:-- --:--:-- --:--:-- 12.5M
+==> qemu.ntrust:   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+==> qemu.ntrust:                                  Dload  Upload   Total   Spent    Left  Speed
+==> qemu.ntrust: 100  313k  100  313k    0     0  1264k      0 --:--:-- --:--:-- --:--:-- 1269k
+==> qemu.ntrust: Reading package lists...
+==> qemu.ntrust: Building dependency tree...
+==> qemu.ntrust: Reading state information...
+==> qemu.ntrust: Recommended packages:
+==> qemu.ntrust:   logrotate
+==> qemu.ntrust: The following NEW packages will be installed:
+==> qemu.ntrust:   libnvat nginx nginx-module-acme nvattest
+==> qemu.ntrust: 0 upgraded, 4 newly installed, 0 to remove and 0 not upgraded.
+==> qemu.ntrust: Need to get 0 B/10.0 MB of archives.
+==> qemu.ntrust: After this operation, 40.8 MB of additional disk space will be used.
+==> qemu.ntrust: Get:1 /tmp/tmp.WCRjfVOAYh/libnvat.deb libnvat amd64 2.0.0.1790976895-1 [6152 kB]
+==> qemu.ntrust: Get:2 /tmp/tmp.WCRjfVOAYh/nginx.deb nginx amd64 1.30.5-1~noble [1208 kB]
+==> qemu.ntrust: Get:3 /tmp/tmp.WCRjfVOAYh/nginx-acme.deb nginx-module-acme amd64 1.30.5+0.4.1-1~noble [2328 kB]
+==> qemu.ntrust: Get:4 /tmp/tmp.WCRjfVOAYh/nvattest.deb nvattest amd64 2.0.0.1790976895-1 [321 kB]
+==> qemu.ntrust: debconf: delaying package configuration, since apt-utils is not installed
+==> qemu.ntrust: Selecting previously unselected package libnvat.
+==> qemu.ntrust: (Reading database ... 23672 files and directories currently installed.)
+==> qemu.ntrust: Preparing to unpack .../tmp/tmp.WCRjfVOAYh/libnvat.deb ...
+==> qemu.ntrust: Unpacking libnvat (2.0.0.1790976895-1) ...
+==> qemu.ntrust: Selecting previously unselected package nginx.
+==> qemu.ntrust: Preparing to unpack /tmp/tmp.WCRjfVOAYh/nginx.deb ...
+==> qemu.ntrust: ----------------------------------------------------------------------
+==> qemu.ntrust:
+==> qemu.ntrust: Thanks for using nginx!
+==> qemu.ntrust:
+==> qemu.ntrust: Please find the official documentation for nginx here:
+==> qemu.ntrust: * https://nginx.org/en/docs/
+==> qemu.ntrust:
+==> qemu.ntrust: Please subscribe to nginx-announce mailing list to get
+==> qemu.ntrust: the most important news about nginx:
+==> qemu.ntrust: * https://nginx.org/en/support.html
+==> qemu.ntrust:
+==> qemu.ntrust: Commercial subscriptions for nginx are available on:
+==> qemu.ntrust: * https://nginx.com/products/
+==> qemu.ntrust:
+==> qemu.ntrust: ----------------------------------------------------------------------
+==> qemu.ntrust: Unpacking nginx (1.30.5-1~noble) ...
+==> qemu.ntrust: Selecting previously unselected package nginx-module-acme.
+==> qemu.ntrust: Preparing to unpack .../tmp.WCRjfVOAYh/nginx-acme.deb ...
+==> qemu.ntrust: Unpacking nginx-module-acme (1.30.5+0.4.1-1~noble) ...
+==> qemu.ntrust: Selecting previously unselected package nvattest.
+==> qemu.ntrust: Preparing to unpack .../tmp.WCRjfVOAYh/nvattest.deb ...
+==> qemu.ntrust: Unpacking nvattest (2.0.0.1790976895-1) ...
+==> qemu.ntrust: Setting up nginx (1.30.5-1~noble) ...
+==> qemu.ntrust: Failed to preset unit, unit /etc/systemd/system/nginx.service is masked.
+==> qemu.ntrust: /usr/bin/deb-systemd-helper: error: systemctl preset failed on nginx.service: No such file or directory
+==> qemu.ntrust: Setting up libnvat (2.0.0.1790976895-1) ...
+==> qemu.ntrust: Setting up nvattest (2.0.0.1790976895-1) ...
+==> qemu.ntrust: Setting up nginx-module-acme (1.30.5+0.4.1-1~noble) ...
+==> qemu.ntrust: ----------------------------------------------------------------------
+==> qemu.ntrust:
+==> qemu.ntrust: The nginx-acme for nginx have been installed.
+==> qemu.ntrust: To enable these modules, add the following to /etc/nginx/nginx.conf
+==> qemu.ntrust: and reload nginx:
+==> qemu.ntrust:
+==> qemu.ntrust:     load_module modules/ngx_http_acme_module.so;
+==> qemu.ntrust:
+==> qemu.ntrust: Please refer to the module documentation for further details:
+==> qemu.ntrust: https://nginx.org/en/docs/http/ngx_http_acme_module.html
+==> qemu.ntrust:
+==> qemu.ntrust: ----------------------------------------------------------------------
+==> qemu.ntrust:   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+==> qemu.ntrust:                                  Dload  Upload   Total   Spent    Left  Speed
+==> qemu.ntrust: 100 17.1M  100 17.1M    0     0  90.4M      0 --:--:-- --:--:-- --:--:-- 90.5M
+==> qemu.ntrust: Using CPython 3.12.3 interpreter at: /usr/bin/python3
+==> qemu.ntrust: Creating virtual environment at: /opt/ntrust/venv
+==> qemu.ntrust: Activate with: source /opt/ntrust/venv/bin/activate
+==> qemu.ntrust: Using Python 3.12.3 environment at: /opt/ntrust/venv
+==> qemu.ntrust: Resolved 200 packages in 23.97s
+==> qemu.ntrust: Downloading nvidia-cuda-nvdisasm (5.0MiB)
+==> qemu.ntrust:  Downloaded nvidia-cuda-nvdisasm
+==> qemu.ntrust: Downloading flashinfer-cubin (1.5GiB)
+==> qemu.ntrust: Downloading torch (502.2MiB)
+==> qemu.ntrust:  Downloaded torch
+==> qemu.ntrust: Downloading nvidia-cublas (403.5MiB)
+==> qemu.ntrust:  Downloaded nvidia-cublas
+==> qemu.ntrust: Downloading nvidia-cudnn-cu13 (349.2MiB)
+==> qemu.ntrust:  Downloaded nvidia-cudnn-cu13
+==> qemu.ntrust: Downloading vllm (305.7MiB)
+==> qemu.ntrust:  Downloaded vllm
+==> qemu.ntrust: Downloading nvidia-cufft (204.2MiB)
+==> qemu.ntrust:  Downloaded nvidia-cufft
+==> qemu.ntrust: Downloading nvidia-nccl-cu13 (196.4MiB)
+==> qemu.ntrust:  Downloaded nvidia-nccl-cu13
+==> qemu.ntrust: Downloading nvidia-cusolver (191.6MiB)
+==> qemu.ntrust:  Downloaded nvidia-cusolver
+==> qemu.ntrust: Downloading triton (188.6MiB)
+==> qemu.ntrust:  Downloaded flashinfer-cubin
+==> qemu.ntrust: Downloading nvidia-cusparselt-cu13 (162.3MiB)
+==> qemu.ntrust:  Downloaded triton
+==> qemu.ntrust: Downloading nvidia-cusparse (139.2MiB)
+==> qemu.ntrust:  Downloaded nvidia-cusparselt-cu13
+==> qemu.ntrust: Downloading tokenspeed-triton (89.0MiB)
+==> qemu.ntrust:  Downloaded nvidia-cusparse
+==> qemu.ntrust: Downloading nvidia-cuda-nvrtc (86.0MiB)
+==> qemu.ntrust:  Downloaded tokenspeed-triton
+==> qemu.ntrust: Downloading nvidia-cutlass-dsl-libs-cu12 (84.6MiB)
+==> qemu.ntrust:  Downloaded nvidia-cuda-nvrtc
+==> qemu.ntrust:  Downloaded nvidia-cutlass-dsl-libs-cu12
+==> qemu.ntrust: Downloading nvidia-nvvm (58.7MiB)
+==> qemu.ntrust: Downloading nvidia-cutlass-dsl-libs-cu13 (84.2MiB)
+==> qemu.ntrust:  Downloaded nvidia-nvvm
+==> qemu.ntrust:  Downloaded nvidia-cutlass-dsl-libs-cu13
+==> qemu.ntrust: Downloading opencv-python-headless (58.4MiB)
+==> qemu.ntrust: Downloading nvidia-nvshmem-cu13 (57.6MiB)
+==> qemu.ntrust:  Downloaded nvidia-nvshmem-cu13
+==> qemu.ntrust: Downloading nvidia-curand (56.8MiB)
+==> qemu.ntrust:  Downloaded opencv-python-headless
+==> qemu.ntrust: Downloading llvmlite (53.7MiB)
+==> qemu.ntrust:  Downloaded nvidia-curand
+==> qemu.ntrust: Downloading tilelang (48.2MiB)
+==> qemu.ntrust:  Downloaded llvmlite
+==> qemu.ntrust: Downloading pynvvideocodec (41.2MiB)
+==> qemu.ntrust:  Downloaded pynvvideocodec
+==> qemu.ntrust: Downloading nvidia-nvjitlink (40.5MiB)
+==> qemu.ntrust:  Downloaded tilelang
+==> qemu.ntrust: Downloading nvidia-cuda-nvcc (35.7MiB)
+==> qemu.ntrust:  Downloaded nvidia-nvjitlink
+==> qemu.ntrust:  Downloaded nvidia-cuda-nvcc
+==> qemu.ntrust: Downloading z3-solver (27.9MiB)
+==> qemu.ntrust: Downloading flashinfer-python (32.1MiB)
+==> qemu.ntrust:  Downloaded z3-solver
+==> qemu.ntrust: Downloading nccl-extensions (21.5MiB)
+==> qemu.ntrust:  Downloaded nccl-extensions
+==> qemu.ntrust:  Downloaded flashinfer-python
+==> qemu.ntrust: Downloading numpy (15.8MiB)
+==> qemu.ntrust: Downloading transformers (11.7MiB)
+==> qemu.ntrust:  Downloaded numpy
+==> qemu.ntrust: Downloading nvidia-cuda-cupti (10.2MiB)
+==> qemu.ntrust:  Downloaded transformers
+==> qemu.ntrust: Downloading nvidia-cudnn-frontend (9.7MiB)
+==> qemu.ntrust:  Downloaded nvidia-cuda-cupti
+==> qemu.ntrust:  Downloaded nvidia-cudnn-frontend
+==> qemu.ntrust: Downloading pycountry (7.7MiB)
+==> qemu.ntrust: Downloading torchcodec (9.5MiB)
+==> qemu.ntrust:  Downloaded torchcodec
+==> qemu.ntrust: Downloading torchvision (7.3MiB)
+==> qemu.ntrust:  Downloaded pycountry
+==> qemu.ntrust: Downloading cuda-bindings (6.8MiB)
+==> qemu.ntrust:  Downloaded torchvision
+==> qemu.ntrust: Downloading grpcio (6.8MiB)
+==> qemu.ntrust:  Downloaded cuda-bindings
+==> qemu.ntrust: Downloading pillow (6.6MiB)
+==> qemu.ntrust:  Downloaded pillow
+==> qemu.ntrust: Downloading cuda-core (6.3MiB)
+==> qemu.ntrust:  Downloaded grpcio
+==> qemu.ntrust: Downloading mistral-common (6.3MiB)
+==> qemu.ntrust:  Downloaded cuda-core
+==> qemu.ntrust: Downloading instanttensor (6.2MiB)
+==> qemu.ntrust:  Downloaded mistral-common
+==> qemu.ntrust: Downloading sympy (6.0MiB)
+==> qemu.ntrust:  Downloaded instanttensor
+==> qemu.ntrust: Downloading cryptography (4.5MiB)
+==> qemu.ntrust:  Downloaded cryptography
+==> qemu.ntrust: Downloading uvloop (4.3MiB)
+==> qemu.ntrust:  Downloaded sympy
+==> qemu.ntrust: Downloading hf-xet (4.0MiB)
+==> qemu.ntrust:  Downloaded uvloop
+==> qemu.ntrust: Downloading nvidia-cuda-cccl (3.7MiB)
+==> qemu.ntrust:  Downloaded hf-xet
+==> qemu.ntrust: Downloading numba (3.6MiB)
+==> qemu.ntrust:  Downloaded nvidia-cuda-cccl
+==> qemu.ntrust: Downloading nccl4py (3.5MiB)
+==> qemu.ntrust:  Downloaded nccl4py
+==> qemu.ntrust:  Downloaded numba
+==> qemu.ntrust: Downloading tokenizers (3.2MiB)
+==> qemu.ntrust: Downloading oss-harmony (3.4MiB)
+==> qemu.ntrust:  Downloaded tokenizers
+==> qemu.ntrust:  Downloaded oss-harmony
+==> qemu.ntrust: Downloading nvidia-cutlass-dsl-libs-base (2.7MiB)
+==> qemu.ntrust: Downloading llguidance (2.9MiB)
+==> qemu.ntrust:  Downloaded nvidia-cutlass-dsl-libs-base
+==> qemu.ntrust:  Downloaded llguidance
+==> qemu.ntrust: Downloading apache-tvm-ffi (2.6MiB)
+==> qemu.ntrust: Downloading outlines-core (2.2MiB)
+==> qemu.ntrust:  Downloaded outlines-core
+==> qemu.ntrust:  Downloaded apache-tvm-ffi
+==> qemu.ntrust: Downloading nvidia-cuda-runtime (2.1MiB)
+==> qemu.ntrust: Downloading openai (2.1MiB)
+==> qemu.ntrust:  Downloaded nvidia-cuda-runtime
+==> qemu.ntrust:  Downloaded openai
+==> qemu.ntrust: Downloading pydantic-core (2.1MiB)
+==> qemu.ntrust: Downloading networkx (2.0MiB)
+==> qemu.ntrust:  Downloaded pydantic-core
+==> qemu.ntrust:  Downloaded networkx
+==> qemu.ntrust: Downloading anthropic (1.9MiB)
+==> qemu.ntrust: Downloading fastsafetensors (2.0MiB)
+==> qemu.ntrust:  Downloaded fastsafetensors
+==> qemu.ntrust: Downloading aiohttp (1.8MiB)
+==> qemu.ntrust:  Downloaded aiohttp
+==> qemu.ntrust: Downloading torchaudio (1.7MiB)
+==> qemu.ntrust:  Downloaded anthropic
+==> qemu.ntrust: Downloading sentencepiece (1.3MiB)
+==> qemu.ntrust:  Downloaded torchaudio
+==> qemu.ntrust:  Downloaded sentencepiece
+==> qemu.ntrust: Downloading xgrammar (1.2MiB)
+==> qemu.ntrust: Downloading pygments (1.2MiB)
+==> qemu.ntrust:  Downloaded xgrammar
+==> qemu.ntrust: Downloading nvidia-cutlass-dsl-libs-core (1.2MiB)
+==> qemu.ntrust:  Downloaded pygments
+==> qemu.ntrust: Downloading nvidia-cufile (1.2MiB)
+==> qemu.ntrust:  Downloaded nvidia-cutlass-dsl-libs-core
+==> qemu.ntrust: Downloading tiktoken (1.1MiB)
+==> qemu.ntrust:  Downloaded nvidia-cufile
+==> qemu.ntrust: Downloading setuptools (1.0MiB)
+==> qemu.ntrust:  Downloaded tiktoken
+==> qemu.ntrust:  Downloaded setuptools
+==> qemu.ntrust: Prepared 200 packages in 2m 20s
+==> qemu.ntrust: Installed 200 packages in 29.46s
+==> qemu.ntrust:  + agent-detector==2.0.0
+==> qemu.ntrust:  + aiohappyeyeballs==2.7.1
+==> qemu.ntrust:  + aiohttp==3.14.5
+==> qemu.ntrust:  + aiosignal==1.4.0
+==> qemu.ntrust:  + annotated-doc==0.0.5
+==> qemu.ntrust:  + annotated-types==0.8.0
+==> qemu.ntrust:  + anthropic==1.13.0
+==> qemu.ntrust:  + anyio==4.15.1
+==> qemu.ntrust:  + apache-tvm-ffi==0.1.11
+==> qemu.ntrust:  + astor==0.8.1
+==> qemu.ntrust:  + attrs==26.1.0
+==> qemu.ntrust:  + blake3==1.0.11
+==> qemu.ntrust:  + cachetools==7.2.1
+==> qemu.ntrust:  + cbor2==6.1.5
+==> qemu.ntrust:  + certifi==2026.7.22
+==> qemu.ntrust:  + cffi==2.1.1
+==> qemu.ntrust:  + charset-normalizer==3.5.2
+==> qemu.ntrust:  + click==8.5.0
+==> qemu.ntrust:  + cloudpickle==3.1.2
+==> qemu.ntrust:  + compressed-tensors==0.17.0
+==> qemu.ntrust:  + cryptography==50.0.2
+==> qemu.ntrust:  + cuda-bindings==13.4.3
+==> qemu.ntrust:  + cuda-core==1.2.1
+==> qemu.ntrust:  + cuda-pathfinder==1.8.3
+==> qemu.ntrust:  + cuda-python==13.4.1
+==> qemu.ntrust:  + cuda-tile==1.6.0
+==> qemu.ntrust:  + cuda-toolkit==13.0.3.0
+==> qemu.ntrust:  + depyf==0.20.0
+==> qemu.ntrust:  + detect-installer==0.2.1
+==> qemu.ntrust:  + dill==0.4.1
+==> qemu.ntrust:  + dnspython==2.9.0
+==> qemu.ntrust:  + docstring-parser==0.18.0
+==> qemu.ntrust:  + einops==0.8.2
+==> qemu.ntrust:  + email-validator==2.3.0
+==> qemu.ntrust:  + fastapi==0.136.3
+==> qemu.ntrust:  + fastapi-cli==0.0.32
+==> qemu.ntrust:  + fastapi-cloud-cli==0.26.0
+==> qemu.ntrust:  + fastar==0.12.0
+==> qemu.ntrust:  + fastsafetensors==0.4.0
+==> qemu.ntrust:  + filelock==4.1.1
+==> qemu.ntrust:  + flashinfer-cubin==0.7.0.post1 (from https://github.com/flashinfer-ai/flashinfer/releases/download/v0.7.0.post1/flashinfer_cubin-0.7.0.post1-py3-none-any.whl#sha256=f5b5fbf6e914b358219b845ed3ee586ffc1ae3c9768c8b135115ac14afbceed3)
+==> qemu.ntrust:  + flashinfer-python==0.7.0.post1
+==> qemu.ntrust:  + frozenlist==1.8.0
+==> qemu.ntrust:  + fsspec==2026.9.0
+==> qemu.ntrust:  + googleapis-common-protos==1.75.5
+==> qemu.ntrust:  + grpcio==1.84.0
+==> qemu.ntrust:  + h11==0.16.0
+==> qemu.ntrust:  + hf-xet==1.7.0
+==> qemu.ntrust:  + httpcore==1.0.9
+==> qemu.ntrust:  + httpcore2==2.13.1
+==> qemu.ntrust:  + httptools==0.9.0
+==> qemu.ntrust:  + httpx==0.28.1
+==> qemu.ntrust:  + httpx2==2.13.1
+==> qemu.ntrust:  + huggingface-hub==1.33.0
+==> qemu.ntrust:  + humming-kernels==0.1.16
+==> qemu.ntrust:  + idna==3.20
+==> qemu.ntrust:  + ijson==3.5.1
+==> qemu.ntrust:  + instanttensor==0.2.1
+==> qemu.ntrust:  + interegular==0.3.3
+==> qemu.ntrust:  + jinja2==3.1.6
+==> qemu.ntrust:  + jiter==0.17.0
+==> qemu.ntrust:  + jmespath==1.1.0
+==> qemu.ntrust:  + jsonschema==4.26.0
+==> qemu.ntrust:  + jsonschema-specifications==2025.9.1
+==> qemu.ntrust:  + lark==1.2.2
+==> qemu.ntrust:  + llguidance==1.7.6
+==> qemu.ntrust:  + llvmlite==0.47.0
+==> qemu.ntrust:  + lm-format-enforcer==0.11.3
+==> qemu.ntrust:  + loguru==0.7.3
+==> qemu.ntrust:  + markdown-it-py==4.2.0
+==> qemu.ntrust:  + markupsafe==3.0.4
+==> qemu.ntrust:  + mcp==2.3.0
+==> qemu.ntrust:  + mcp-types==2.3.0
+==> qemu.ntrust:  + mdurl==0.1.2
+==> qemu.ntrust:  + mistral-common==1.12.0
+==> qemu.ntrust:  + ml-dtypes==0.6.0
+==> qemu.ntrust:  + model-hosting-container-standards==0.1.16
+==> qemu.ntrust:  + mpmath==1.3.0
+==> qemu.ntrust:  + msgspec==0.22.0
+==> qemu.ntrust:  + multidict==7.1.0
+==> qemu.ntrust:  + nccl-extensions==0.1.0
+==> qemu.ntrust:  + nccl4py==0.6.0
+==> qemu.ntrust:  + networkx==3.7
+==> qemu.ntrust:  + ninja==1.13.2
+==> qemu.ntrust:  + numba==0.65.0
+==> qemu.ntrust:  + numpy==2.3.5
+==> qemu.ntrust:  + nvidia-cublas==13.1.1.3
+==> qemu.ntrust:  + nvidia-cuda-cccl==13.3.4.3.1
+==> qemu.ntrust:  + nvidia-cuda-crt==13.0.88
+==> qemu.ntrust:  + nvidia-cuda-cupti==13.0.85
+==> qemu.ntrust:  + nvidia-cuda-nvcc==13.0.88
+==> qemu.ntrust:  + nvidia-cuda-nvdisasm==13.4.92
+==> qemu.ntrust:  + nvidia-cuda-nvrtc==13.0.88
+==> qemu.ntrust:  + nvidia-cuda-runtime==13.0.96
+==> qemu.ntrust:  + nvidia-cudnn-cu13==9.20.0.48
+==> qemu.ntrust:  + nvidia-cudnn-frontend==1.31.0
+==> qemu.ntrust:  + nvidia-cufft==12.0.0.61
+==> qemu.ntrust:  + nvidia-cufile==1.15.1.6
+==> qemu.ntrust:  + nvidia-curand==10.4.0.35
+==> qemu.ntrust:  + nvidia-cusolver==12.0.4.66
+==> qemu.ntrust:  + nvidia-cusparse==12.6.3.3
+==> qemu.ntrust:  + nvidia-cusparselt-cu13==0.8.1
+==> qemu.ntrust:  + nvidia-cutlass-dsl==4.7.1
+==> qemu.ntrust:  + nvidia-cutlass-dsl-libs-base==4.7.1
+==> qemu.ntrust:  + nvidia-cutlass-dsl-libs-core==4.7.1
+==> qemu.ntrust:  + nvidia-cutlass-dsl-libs-cu12==4.7.1
+==> qemu.ntrust:  + nvidia-cutlass-dsl-libs-cu13==4.7.1
+==> qemu.ntrust:  + nvidia-ml-py==13.615.71
+==> qemu.ntrust:  + nvidia-nccl-cu13==2.29.7
+==> qemu.ntrust:  + nvidia-nvjitlink==13.4.92
+==> qemu.ntrust:  + nvidia-nvshmem-cu13==3.4.5
+==> qemu.ntrust:  + nvidia-nvtx==13.0.85
+==> qemu.ntrust:  + nvidia-nvvm==13.0.88
+==> qemu.ntrust:  + nvtx==0.2.15
+==> qemu.ntrust:  + openai==3.29.0
+==> qemu.ntrust:  + opencv-python-headless==5.0.0.93
+==> qemu.ntrust:  + opentelemetry-api==1.45.1
+==> qemu.ntrust:  + opentelemetry-exporter-http-transport==0.66b1
+==> qemu.ntrust:  + opentelemetry-exporter-otlp==1.45.1
+==> qemu.ntrust:  + opentelemetry-exporter-otlp-common==0.66b1
+==> qemu.ntrust:  + opentelemetry-exporter-otlp-proto-common==1.45.1
+==> qemu.ntrust:  + opentelemetry-exporter-otlp-proto-grpc==1.45.1
+==> qemu.ntrust:  + opentelemetry-exporter-otlp-proto-http==1.45.1
+==> qemu.ntrust:  + opentelemetry-proto==1.45.1
+==> qemu.ntrust:  + opentelemetry-sdk==1.45.1
+==> qemu.ntrust:  + opentelemetry-semantic-conventions==0.66b1
+==> qemu.ntrust:  + opentelemetry-semantic-conventions-ai==0.5.1
+==> qemu.ntrust:  + oss-harmony==0.0.11
+==> qemu.ntrust:  + outlines-core==0.2.14
+==> qemu.ntrust:  + packaging==26.3
+==> qemu.ntrust:  + partial-json-parser==0.2.1.1.post7
+==> qemu.ntrust:  + pillow==12.3.0
+==> qemu.ntrust:  + prometheus-client==0.26.0
+==> qemu.ntrust:  + prometheus-fastapi-instrumentator==8.1.0
+==> qemu.ntrust:  + propcache==0.5.4
+==> qemu.ntrust:  + protobuf==7.36.2
+==> qemu.ntrust:  + psutil==7.2.2
+==> qemu.ntrust:  + py-cpuinfo==9.0.0
+==> qemu.ntrust:  + pybase64==1.5.1
+==> qemu.ntrust:  + pycountry==26.2.16
+==> qemu.ntrust:  + pycparser==3.11
+==> qemu.ntrust:  + pydantic==2.14.1
+==> qemu.ntrust:  + pydantic-core==2.50.1
+==> qemu.ntrust:  + pydantic-extra-types==2.11.1
+==> qemu.ntrust:  + pydantic-settings==2.15.0
+==> qemu.ntrust:  + pygments==2.21.0
+==> qemu.ntrust:  + pyjwt==2.15.1
+==> qemu.ntrust:  + pynvvideocodec==2.0.4
+==> qemu.ntrust:  + python-dotenv==1.2.4
+==> qemu.ntrust:  + python-json-logger==4.2.0
+==> qemu.ntrust:  + python-multipart==0.0.32
+==> qemu.ntrust:  + pyyaml==6.0.3
+==> qemu.ntrust:  + pyzmq==27.2.0
+==> qemu.ntrust:  + quack-kernels==0.6.5
+==> qemu.ntrust:  + referencing==0.37.0
+==> qemu.ntrust:  + regex==2026.9.29
+==> qemu.ntrust:  + requests==2.34.2
+==> qemu.ntrust:  + rich==15.0.0
+==> qemu.ntrust:  + rich-toolkit==0.20.6
+==> qemu.ntrust:  + rignore==0.8.1
+==> qemu.ntrust:  + rpds-py==2026.9.1
+==> qemu.ntrust:  + safetensors==0.8.0
+==> qemu.ntrust:  + sentencepiece==0.2.2
+==> qemu.ntrust:  + sentry-sdk==2.71.0
+==> qemu.ntrust:  + setproctitle==1.3.8
+==> qemu.ntrust:  + setuptools==80.10.2
+==> qemu.ntrust:  + shellingham==1.5.4
+==> qemu.ntrust:  + six==1.17.0
+==> qemu.ntrust:  + sniffio==1.3.1
+==> qemu.ntrust:  + sse-starlette==3.5.0
+==> qemu.ntrust:  + starlette==1.7.0
+==> qemu.ntrust:  + supervisor==4.3.0
+==> qemu.ntrust:  + sympy==1.14.0
+==> qemu.ntrust:  + tabulate==0.10.0
+==> qemu.ntrust:  + tiktoken==0.14.0
+==> qemu.ntrust:  + tilelang==0.1.12
+==> qemu.ntrust:  + tokenizers==0.23.3
+==> qemu.ntrust:  + tokenspeed-mla==0.1.8
+==> qemu.ntrust:  + tokenspeed-triton==3.9.10.post20261008
+==> qemu.ntrust:  + torch==2.13.0
+==> qemu.ntrust:  + torch-c-dlpack-ext==0.1.5
+==> qemu.ntrust:  + torchaudio==2.11.0
+==> qemu.ntrust:  + torchcodec==0.17.0
+==> qemu.ntrust:  + torchvision==0.28.0
+==> qemu.ntrust:  + tqdm==4.70.1
+==> qemu.ntrust:  + transformers==5.17.0
+==> qemu.ntrust:  + triton==3.7.1
+==> qemu.ntrust:  + truststore==0.10.4
+==> qemu.ntrust:  + typer==0.27.3
+==> qemu.ntrust:  + typing-extensions==4.16.0
+==> qemu.ntrust:  + typing-inspection==0.4.4
+==> qemu.ntrust:  + urllib3==2.8.0
+==> qemu.ntrust:  + uvicorn==0.54.0
+==> qemu.ntrust:  + uvloop==0.23.0
+==> qemu.ntrust:  + vllm==0.31.0
+==> qemu.ntrust:  + watchfiles==1.3.0
+==> qemu.ntrust:  + websockets==17.2
+==> qemu.ntrust:  + xgrammar==0.2.7
+==> qemu.ntrust:  + yarl==1.25.1
+==> qemu.ntrust:  + z3-solver==4.15.4.0
+==> qemu.ntrust: Using Python 3.12.3 environment at: /opt/ntrust/venv
+==> qemu.ntrust: Checked 200 packages in 91ms
+==> qemu.ntrust: All installed packages are compatible
+==> qemu.ntrust: update-initramfs: Generating /boot/initrd.img-7.0.0-38-generic
+==> qemu.ntrust: W: No zstd in /usr/bin:/sbin:/bin, using gzip
+==> qemu.ntrust: Sourcing file `/etc/default/grub'
+==> qemu.ntrust: Sourcing file `/etc/default/grub.d/50-cloudimg-settings.cfg'
+==> qemu.ntrust: Generating grub configuration file ...
+==> qemu.ntrust: Found linux image: /boot/vmlinuz-7.0.0-38-generic
+==> qemu.ntrust: Found initrd image: /boot/microcode.cpio /boot/initrd.img-7.0.0-38-generic
+==> qemu.ntrust: Adding boot menu entry for UEFI Firmware Settings ...
+==> qemu.ntrust: done
+==> qemu.ntrust: Created symlink /etc/systemd/system/swap.target → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/sleep.target → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/suspend.target → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/hibernate.target → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/hybrid-sleep.target → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/suspend-then-hibernate.target → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/systemd-suspend.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/systemd-hibernate.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/systemd-hybrid-sleep.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/systemd-suspend-then-hibernate.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/nvidia-suspend.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/nvidia-resume.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/nvidia-hibernate.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/systemd-pstore.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/apt-daily.timer → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/apt-daily-upgrade.timer → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/apt-daily.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/apt-daily-upgrade.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/motd-news.timer → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/motd-news.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/cloud-init-hotplugd.socket → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/cloud-init-hotplugd.service → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/dpkg-db-backup.timer → /dev/null.
+==> qemu.ntrust: Created symlink /etc/systemd/system/multi-user.target.wants/ntrust-inference.service → /etc/systemd/system/ntrust-inference.service.
+==> qemu.ntrust: Created symlink /etc/systemd/system/multi-user.target.wants/ntrust-https.service → /etc/systemd/system/ntrust-https.service.
+==> qemu.ntrust: nvattest 2.0.0+1790976895 (Linux/x86_64)
+==> qemu.ntrust: nginx: the configuration file /run/ntrust-web/nginx.conf syntax is ok
+==> qemu.ntrust: nginx: configuration file /run/ntrust-web/nginx.conf test is successful
+==> qemu.ntrust: nvcc: NVIDIA (R) Cuda compiler driver
+==> qemu.ntrust: Copyright (c) 2005-2025 NVIDIA Corporation
+==> qemu.ntrust: Built on Wed_Aug_20_01:58:59_PM_PDT_2025
+==> qemu.ntrust: Cuda compilation tools, release 13.0, V13.0.88
+==> qemu.ntrust: Build cuda_13.0.r13.0/compiler.36424714_0
+==> qemu.ntrust: torch 2.13.0+cu130 CUDA 13.0
+==> qemu.ntrust: vllm 0.31.0
+==> qemu.ntrust: /opt/ntrust/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1112: UserWarning: Can't initialize NVML
+==> qemu.ntrust:   raw_cnt = _raw_device_count_nvml()
+==> qemu.ntrust: /opt/ntrust/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1112: UserWarning: Can't initialize NVML
+==> qemu.ntrust:   raw_cnt = _raw_device_count_nvml()
+==> qemu.ntrust: W1012 10:23:32.870000 15454 torch/utils/cpp_extension.py:178] No CUDA runtime is found, using CUDA_HOME='/usr/local/cuda'
+==> qemu.ntrust: PASS: CUDA SM90a and Python-extension headers compile without a GPU
+==> qemu.ntrust: vLLM parser test used a mocked device type; this is not GPU execution
+==> qemu.ntrust: PASS: installed upstream parser accepts the launcher and privacy options; no model/GPU executed
+==> qemu.ntrust: Gracefully halting virtual machine...
+==> qemu.ntrust: /boot/efi: 98.2 MiB (102995968 bytes) trimmed on /dev/sda15
+==> qemu.ntrust: /boot: 771.7 MiB (809193472 bytes) trimmed on /dev/sda16
+==> qemu.ntrust: /: 45.6 GiB (48938377216 bytes) trimmed on /dev/sda1
+==> qemu.ntrust: Converting hard drive...
+Build 'qemu.ntrust' finished after 14 minutes 25 seconds.
+
+==> Wait completed after 14 minutes 25 seconds
+
+==> Builds finished. The artifacts of successful builds are:
+--> qemu.ntrust: VM files in directory: /home/azureuser/zmax-ntrust-vllm/dist/qemu

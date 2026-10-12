@@ -1,0 +1,9 @@
+test "$(uname -s)" = Linux
+test "$(uname -m)" = x86_64
+test -r /dev/kvm -a -w /dev/kvm
+bash image/export.sh
+No errors were found on the image.
+255062/1048576 = 24.32% allocated, 0.00% fragmented, 0.00% compressed clusters
+Image end offset: 16720461824
+Images are identical.
+Images are identical.

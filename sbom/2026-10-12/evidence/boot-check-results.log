@@ -1,0 +1,47 @@
+.........................................................................................status: done
+7.0.0-38-generic
+kvm
+CPU confidential mode: none
+580.178.04
+Canonical Ltd. Kernel Module Signing
+ntrust-gpu: inactive
+ntrust-inference: inactive
+ntrust-https: inactive
+/lib/modules/7.0.0-38-generic/kernel/drivers/net/ethernet/google/gve/gve.ko.zst
+Kernel configuration for architecture and allocator triage:
+CONFIG_X86_64=y
+CONFIG_X86_64_ACPI_NUMA=y
+CONFIG_NEED_PER_CPU_EMBED_FIRST_CHUNK=y
+CONFIG_NEED_PER_CPU_PAGE_FIRST_CHUNK=y
+Root filesystem features:
+Filesystem features:      has_journal ext_attr resize_inode dir_index filetype needs_recovery extent 64bit flex_bg sparse_super large_file huge_file dir_nlink extra_isize metadata_csum
+systemd-time-wait-sync: active
+nvidia-persistenced: failed
+ntrust-gpu: inactive
+ntrust-inference: inactive
+ntrust-https: inactive
+model: unavailable
+PASS: unwanted packages absent; sleep/pstore disabled; optional subsystems reject module loads.
+ActiveState=active
+SubState=running
+Running OS services in this ordinary VM:
+  dbus.service               loaded active running D-Bus System Message Bus
+  getty@tty1.service         loaded active running Getty on tty1
+  serial-getty@ttyS0.service loaded active running Serial Getty on ttyS0
+  ssh.service                loaded active running OpenBSD Secure Shell server
+  systemd-journald.service   loaded active running Journal Service
+  systemd-logind.service     loaded active running User Login Management
+  systemd-networkd.service   loaded active running Network Configuration
+  systemd-resolved.service   loaded active running Network Name Resolution
+  systemd-timesyncd.service  loaded active running Network Time Synchronization
+  systemd-udevd.service      loaded active running Rule-based Manager for Device Events and Files
+  user@1000.service          loaded active running User Manager for UID 1000
+State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+LISTEN 0      4096   127.0.0.53%lo:53        0.0.0.0:*
+LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*
+LISTEN 0      4096      127.0.0.54:53        0.0.0.0:*
+LISTEN 0      4096            [::]:22           [::]:*
+Filesystem       1B-blocks        Used   Available Use% Mounted on
+/dev/sda1      65445814272 16425291776 49003745280  26% /
+PASS: completed image boots; ordinary VM rejected; no inference listener or API key.
+PASS: actual inference IP policy permits loopback and denies a reachable non-loopback destination.
