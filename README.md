@@ -47,7 +47,7 @@ sha256sum --check dist/SHA256SUMS
 
 Outputs are `dist/qemu/ntrust.qcow2`, `dist/ntrust-azure.vhd`, `dist/ntrust-gcp.tar.gz` and `dist/SHA256SUMS`. Build/SSH keys and disk files are ignored by Git. Each repository builds only its own engine. The ordinary KVM smoke test must reject inference; it cannot exercise H100 inference.
 
-The [hashed Python dependency lock](image/requirements.lock) contains 199 distributions. Base package versions are recorded from each build. Ubuntu packages are not snapshot-pinned, so reproducible releases are not claimed. [Component selection and risks](docs/SECURITY-BOM.md) explain what stays and why.
+The [hashed Python dependency lock](image/requirements.lock) contains 200 distributions. Base package versions are recorded from each build. Ubuntu packages are not snapshot-pinned, so reproducible releases are not claimed. [Component selection and risks](docs/SECURITY-BOM.md) explain what stays and why.
 
 ## Deploy
 

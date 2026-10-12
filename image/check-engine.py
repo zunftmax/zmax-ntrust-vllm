@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import runpy
 import shlex
+import subprocess
 import tempfile
 from unittest.mock import patch
 
@@ -16,6 +17,15 @@ for line in unit.splitlines():
 runtime = Path('/run/ntrust-inference')
 runtime.mkdir(mode=0o700, exist_ok=True)
 with tempfile.TemporaryDirectory(dir=runtime) as tmp:
+    # Compile tiny test translation units; never execute a CUDA kernel.
+    cuda = Path(tmp, 'probe.cu')
+    cuda.write_text('#include <cuda_runtime.h>\n__global__ void probe() {}\n')
+    subprocess.run(['/usr/local/cuda/bin/nvcc', '-arch=sm_90a', '--cubin', str(cuda), '-o', str(Path(tmp, 'probe.cubin'))], check=True)
+    cpp = Path(tmp, 'probe.cpp')
+    cpp.write_text('#include <Python.h>\nint probe() { return PY_MAJOR_VERSION; }\n')
+    includes = shlex.split(subprocess.check_output(['/usr/bin/python3-config', '--includes'], text=True))
+    subprocess.run(['g++', *includes, '-c', str(cpp), '-o', str(Path(tmp, 'probe.o'))], check=True)
+    print('PASS: CUDA SM90a and Python-extension headers compile without a GPU')
     Path(tmp, 'api-key').write_text('a' * 64)
     os.environ['CREDENTIALS_DIRECTORY'] = tmp
     with patch('os.execv') as execute:

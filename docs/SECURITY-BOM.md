@@ -1,6 +1,6 @@
 # Component selection and security bill of materials
 
-This records the selected vLLM build inputs and their purpose. Expected risk below describes exposure and trust, not a computed probability or a promise of safety. [requirements.lock](../image/requirements.lock) pins 199 Python distributions and accepted SHA-256 hashes for Linux Python 3.12. The image inventory records exact installed OS versions and native-file hashes; source requirements alone are not an installed-image SBOM.
+This records the selected vLLM build inputs and their purpose. Expected risk below describes exposure and trust, not a computed probability or a promise of safety. [requirements.lock](../image/requirements.lock) pins 200 Python distributions and accepted SHA-256 hashes for Linux Python 3.12. The image inventory records exact installed OS versions and native-file hashes; source requirements alone are not an installed-image SBOM.
 
 | Item | Selected version / source | Why retained | Expected risk and control |
 | --- | --- | --- | --- |
@@ -36,3 +36,5 @@ The built image retains upstream `.dist-info` metadata and license files. `make 
 Official references: [vLLM source](https://github.com/vllm-project/vllm/tree/v0.31.0), [NVIDIA CUDA compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/), [NGINX ACME module](https://nginx.org/en/docs/http/ngx_http_acme_module.html), [provider deployment sources](../image/clouds.md#sources).
 
 For a dated vulnerability scan, set `NTRUST_SCAN_TOOLS` to a directory containing verified Syft and Trivy binaries, set `NTRUST_TRIVY_CACHE` to a cache outside the guest, then run `make scan`. This records a maintained-tool SBOM, vulnerability JSON and vulnerability database timestamp alongside the image hashes. Scanners are not installed in the runtime guest.
+
+FlashInfer's matching `flashinfer-cubin` wheel is pinned from its official release to provide kernel files before the inference network is restricted. Each archive is about 1.57 GB compressed and contains multiple GPU architectures. This adds size, but avoids relying on first-request kernel downloads. Architecture-specific pruning is deferred until H100 execution identifies the required subset. JIT source compilation still uses the installed toolkit and RAM cache; the prebuilt JIT-cache bundles are not added. See [FlashInfer installation options](https://docs.flashinfer.ai/installation.html).
