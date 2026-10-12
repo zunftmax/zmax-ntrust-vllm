@@ -26,8 +26,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ca-certificates curl gettext-base python3 shellcheck unzip
           curl --fail --location --retry 3 --proto '=https' \
-            https://releases.hashicorp.com/packer/1.11.2/packer_1.11.2_linux_amd64.zip -o /tmp/packer.zip
-          echo "75cd8dd7ff8fec9aa7ad6c3dc7bf9fe4efd8beb1dc3ebcf42b7c3fa1ab9a8c3c  /tmp/packer.zip" | sha256sum --check --status || true
+            https://releases.hashicorp.com/packer/1.16.1/packer_1.16.1_linux_amd64.zip -o /tmp/packer.zip
+          echo "af38a9e93e4ed1b9ca68206ae969c64c300c82a3dde46a780dfa629f0867f651  /tmp/packer.zip" | sha256sum --check --status
           sudo unzip -q -o /tmp/packer.zip -d /usr/local/bin
           rm -f /tmp/packer.zip
           packer version
@@ -82,7 +82,8 @@ jobs:
             udev unzip xorriso xz-utils
           if ! command -v packer >/dev/null 2>&1; then
             curl --fail --location --retry 3 --proto '=https' \
-              https://releases.hashicorp.com/packer/1.11.2/packer_1.11.2_linux_amd64.zip -o /tmp/packer.zip
+              https://releases.hashicorp.com/packer/1.16.1/packer_1.16.1_linux_amd64.zip -o /tmp/packer.zip
+            echo "af38a9e93e4ed1b9ca68206ae969c64c300c82a3dde46a780dfa629f0867f651  /tmp/packer.zip" | sha256sum --check --status
             sudo unzip -q -o /tmp/packer.zip -d /usr/local/bin
             rm -f /tmp/packer.zip
           fi
