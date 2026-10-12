@@ -111,4 +111,5 @@ ss -ltn
 df -B1 /
 printf 'PASS: completed image boots; ordinary VM rejected; no inference listener or API key.\n'
 GUEST
+"${guest_ssh[@]}" 'sudo /opt/ntrust/venv/bin/python -' < image/check-engine.py | tee "$qa/engine-parser.log"
 "${guest_ssh[@]}" sudo poweroff || true

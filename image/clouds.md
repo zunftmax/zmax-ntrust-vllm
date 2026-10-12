@@ -83,30 +83,30 @@ assignment propagation can take time. Gallery image versions must be unique.
 
 ```sh
 az storage blob upload --auth-mode login --account-name "$STORAGE" \
-  --container-name "$CONTAINER" --name ntrust.vhd --type page \
+  --container-name "$CONTAINER" --name ntrust-vllm.vhd --type page \
   --file dist/ntrust-azure.vhd
 az sig create --resource-group "$RG" --gallery-name "$GALLERY" --location "$REGION"
 az sig image-definition create --resource-group "$RG" --gallery-name "$GALLERY" \
-  --gallery-image-definition ntrust --publisher ntrust --offer confidential-inference \
-  --sku ubuntu-2404 --os-type Linux --os-state Generalized --hyper-v-generation V2 \
+  --gallery-image-definition ntrust-vllm --publisher ntrust --offer confidential-inference \
+  --sku ubuntu-2404-vllm --os-type Linux --os-state Generalized --hyper-v-generation V2 \
   --features SecurityType=ConfidentialVMSupported
 storage_id=$(az storage account show --resource-group "$RG" --name "$STORAGE" --query id -o tsv)
 az sig image-version create --resource-group "$RG" --gallery-name "$GALLERY" \
-  --gallery-image-definition ntrust --gallery-image-version "$VERSION" \
+  --gallery-image-definition ntrust-vllm --gallery-image-version "$VERSION" \
   --os-vhd-storage-account "$storage_id" \
-  --os-vhd-uri "https://$STORAGE.blob.core.windows.net/$CONTAINER/ntrust.vhd"
+  --os-vhd-uri "https://$STORAGE.blob.core.windows.net/$CONTAINER/ntrust-vllm.vhd"
 image_id=$(az sig image-version show --resource-group "$RG" --gallery-name "$GALLERY" \
-  --gallery-image-definition ntrust --gallery-image-version "$VERSION" --query id -o tsv)
+  --gallery-image-definition ntrust-vllm --gallery-image-version "$VERSION" --query id -o tsv)
 ```
 
 ```sh
-az vm create --resource-group "$RG" --name ntrust --location "$REGION" \
+az vm create --resource-group "$RG" --name ntrust-vllm --location "$REGION" \
   --image "$image_id" --size Standard_NCC40ads_H100_v5 \
   --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true \
   --os-disk-security-encryption-type VMGuestStateOnly --public-ip-sku Standard \
   --admin-username operator --ssh-key-values "$SSH_PUBLIC_KEY" \
   --custom-data cloud-init.yaml --enable-agent false --nsg-rule NONE
-az vm open-port --resource-group "$RG" --name ntrust --port 443 --priority 1000
+az vm open-port --resource-group "$RG" --name ntrust-vllm --port 443 --priority 1000
 ```
 
 The Azure Linux provisioning daemon (`walinuxagent`) is absent. The
@@ -119,9 +119,9 @@ Add SSH ingress restricted to your operator address using your network policy.
 No open SSH rule is created above. Point the domain at this VM's public IP.
 
 ```sh
-az vm show --resource-group "$RG" --name ntrust \
+az vm show --resource-group "$RG" --name ntrust-vllm \
   --query '{size:hardwareProfile.vmSize,security:securityProfile}' -o json
-az vm show -d --resource-group "$RG" --name ntrust --query publicIps -o tsv
+az vm show -d --resource-group "$RG" --name ntrust-vllm --query publicIps -o tsv
 ```
 
 Add an NSG TCP 22 rule limited to `OPERATOR_CIDR` in the portal or your existing
@@ -140,7 +140,7 @@ smallest necessary adaptation; do not silently claim the common image works.
 
 Use an existing project, bucket and VPC. Set `PROJECT`, `BUCKET`, `NETWORK`, and
 `ZONE` to a zone with confidential `a3-highgpu-1g` capacity and GPU Spot quota.
-Use an image name such as `ntrust-0-1-0` for `IMAGE`.
+Use an image name such as `ntrust-vllm-0-1-0` for `IMAGE`.
 
 ```sh
 gcloud config list
@@ -159,16 +159,16 @@ gcloud storage cp dist/ntrust-gcp.tar.gz "gs://$BUCKET/$IMAGE.tar.gz"
 gcloud compute images create "$IMAGE" --project "$PROJECT" \
   --source-uri "gs://$BUCKET/$IMAGE.tar.gz" \
   --guest-os-features UEFI_COMPATIBLE,TDX_CAPABLE,GVNIC,VIRTIO_SCSI_MULTIQUEUE
-gcloud compute firewall-rules create ntrust-https --project "$PROJECT" \
+gcloud compute firewall-rules create ntrust-vllm-https --project "$PROJECT" \
   --network "$NETWORK" --direction INGRESS --action ALLOW \
-  --rules tcp:443 --source-ranges 0.0.0.0/0 --target-tags ntrust-https
-gcloud compute instances create ntrust --project "$PROJECT" --zone "$ZONE" \
+  --rules tcp:443 --source-ranges 0.0.0.0/0 --target-tags ntrust-vllm-https
+gcloud compute instances create ntrust-vllm --project "$PROJECT" --zone "$ZONE" \
   --machine-type a3-highgpu-1g --confidential-compute-type TDX \
   --provisioning-model SPOT --maintenance-policy TERMINATE \
   --instance-termination-action STOP --no-restart-on-failure \
   --image "$IMAGE" --image-project "$PROJECT" --boot-disk-size 64GB \
   --shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring \
-  --network-interface "network=$NETWORK,nic-type=GVNIC" --tags ntrust-https \
+  --network-interface "network=$NETWORK,nic-type=GVNIC" --tags ntrust-vllm-https \
   --metadata-from-file user-data=cloud-init.yaml \
   --no-service-account --no-scopes
 ```

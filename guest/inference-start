@@ -9,9 +9,8 @@ def main():
     if len(key) != 64 or any(c not in '0123456789abcdef' for c in key):
         raise SystemExit('Invalid per-boot credential')
     os.environ['VLLM_API_KEY'] = key
-    python = '/opt/ntrust/venv/bin/python'
-    os.execv(python, [python, '-m', 'vllm.entrypoints.openai.api_server',
-        '--model', '/var/lib/ntrust/model', '--served-model-name', 'model',
+    binary = '/opt/ntrust/venv/bin/vllm'
+    os.execv(binary, [binary, 'serve', '/var/lib/ntrust/model', '--served-model-name', 'model',
         '--host', '127.0.0.1', '--port', '8080', '--load-format', 'safetensors',
         '--tensor-parallel-size', '1', '--max-model-len', '8192',
         '--max-num-seqs', '4', '--gpu-memory-utilization', '0.85',

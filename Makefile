@@ -1,4 +1,4 @@
-.PHONY: image export check check-host
+.PHONY: image export check check-host sbom scan
 
 check:
 	python3 -m unittest discover -s tests -v
@@ -23,3 +23,6 @@ export: check-host
 
 sbom: check-host
 	bash image/inventory.sh
+
+scan: check-host
+	bash image/scan.sh

@@ -47,3 +47,6 @@ print('torch', torch.__version__, 'CUDA', torch.version.cuda)
 assert torch.version.cuda.startswith('13.')
 print('vllm', md.version('vllm'))
 PY
+
+/opt/ntrust/venv/bin/python /tmp/ntrust/image/check-engine.py
+rm -rf /run/ntrust-inference
