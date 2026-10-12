@@ -1,0 +1,3 @@
+6bf42d43c568bd65f11fc5abad411c3557d4baa797ab4827da1ce5c34078a5b6  dist/qemu/ntrust.qcow2
+a0e215b9f4fda68446c4ccb47e89aad9609e8691ddf09ecdbee96a528b68f4e8  dist/ntrust-gcp.tar.gz
+b8469efe51fdfbc009f7dcd16dd79804aae6f390f6b1496a786d78558b3ac797  dist/ntrust-azure.vhd

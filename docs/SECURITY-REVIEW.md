@@ -8,7 +8,7 @@ Administrative SSH is retained for initial operator setup and per-boot credentia
 
 The inference engines and PyTorch bring a large native/Python dependency closure. Some packages support telemetry, model downloading, distributed execution or additional API features. Installed dependency presence is not proof that those features run. We disable usage reporting, set offline model mode, keep workers on loopback and expose only two NGINX routes. Do not enable remote model code or arbitrary engine flags through untrusted input.
 
-CUDA JIT needs compiler components and executable RAM-backed cache files. Therefore a general C/C++ compiler and Python headers remain in the guest. No project-owned concurrency implementation is added; engine scheduling, multiprocessing, queues, locks and GPU kernels are maintained upstream. This does not prove the absence of upstream concurrency defects. Native driver/JIT dependencies remain a significant trust boundary.
+CUDA JIT needs compiler components and executable RAM-backed cache files. Therefore a general C/C++ compiler and Python headers remain in the guest. No project-owned guest concurrency implementation is added; engine scheduling, multiprocessing, queues, locks and GPU kernels are maintained upstream. This does not prove the absence of upstream concurrency defects. Native driver/JIT dependencies remain a significant trust boundary.
 
 The ordinary KVM test must fail GPU admission with no API key or inference listener. It cannot establish confidential hardware compatibility, ACME issuance, model correctness, prompt isolation, cancellation or throughput. Complete those tests on the exact cloud SKU and image before use with sensitive data. Azure/GCP custom import, kernel/driver behavior and external traffic tests are still pending.
 
@@ -16,7 +16,7 @@ CT observes new certificate issuance; it neither seals this disk nor prevents a 
 
 No vulnerability scan or package count from the earlier engine is evidence for these new images. Every built image needs its own inventory and scan. Build outputs include the installed Debian/Python versions and native-file hashes; vulnerability results must be dated and tied to the corresponding disk hash.
 
-The [2026-10-12 evidence packet](../sbom/2026-10-12/README.md) contains this image's completed inventory, independent scan, ordinary boot checks and export hashes. Raw results include 5 CRITICAL and 166 HIGH package matches: 148 concern kernel-source advisories assigned to the UAPI-header package, while 23 concern the installed HWE kernel and have individual configuration/module/filesystem dispositions. These mitigations are not vendor patches. The vLLM-compatible setuptools version also retains a MEDIUM source-distribution publishing advisory; that workflow is absent here, and the upstream version constraint prevents a compatible upgrade to the scanner-listed fix. The packet retains the full findings and reasoning without suppression.
+The [minimal-kernel evidence packet](../sbom/2026-10-12-minimal-kernel/README.md) contains the completed build, ordinary UEFI boot/reboot, disk-growth, module-signature, file-lock accounting, network-policy, export and full-image scan results. Raw scanner matches are 0 CRITICAL, 0 HIGH, 87 MEDIUM, 32 LOW; these are not confirmed exploit counts. Changing from Ubuntu HWE to a custom kernel changes distro-scanner coverage, so the separate review carries all 4,294 historical kernel advisory IDs forward using pinned Linux maintainer records and the actual source/configuration. Seven entries remain unresolved and one depends on provider firmware. The included file-lock accounting patch passed a real bounded-cgroup allocation check. This kernel replacement does not claim all remaining Python/OS findings are patched. The [earlier HWE evidence](../sbom/2026-10-12/README.md) is retained unchanged.
 
 ## Script and service decisions
 
@@ -33,6 +33,9 @@ The [2026-10-12 evidence packet](../sbom/2026-10-12/README.md) contains this ima
 | `guest/fetch-model` / `model.json` | Bootstrap only: pinned public revision, size/hash checks on every file and atomic directory promotion; no runtime model downloading |
 | `guest/cloud-init.example.yaml` / `runtime.env.example` | Public deployment inputs only; no private credentials or model tokens |
 | `guest/status` | Fixed service states and a discarded health response; no generic command or log-reader endpoint |
+| `kernel/build.sh` | Pinned upstream source hashes, Linux release signature verification, minimal Kbuild, compute-only NVIDIA modules, enforced signatures and Debian packaging; private signing key stays on the builder |
+| `kernel/check-config.py` / `Kconfig` | Reject unknown/dropped settings and select UVM's required MMU notifier dependency; no new runtime synchronization code |
+| `kernel/patches/0001-account-file-lock-caches.patch` | Restores upstream cgroup accounting for lock caches, accepting its documented microbenchmark cost |
 | `kernel/required.config` | Unneeded subsystems compiled out; cloud drivers built in, six signed crypto/compute modules packaged |
 | `image/install.sh` | Custom kernel and signed compute modules, hashed binary wheel closure, background-package pruning and installed configuration checks; compiler retained for upstream JIT |
 | `image/check-installed.sh` | Package/module checks, dynamic linkage, native NGINX/ACME configuration, CUDA toolkit and installed engine metadata |
@@ -40,13 +43,14 @@ The [2026-10-12 evidence packet](../sbom/2026-10-12/README.md) contains this ima
 | `image/finalize.sh` | Removes builder authorizations, host identities, cloud seed/state, saved random seed and logs; scoped cleanup, not forensic disk sealing |
 | `image/ntrust.pkr.hcl` / `build-cloud-init.yaml` | Existing Packer/QEMU/UEFI workflow and temporary builder key; build on Linux |
 | `image/export.sh` | Stage exports, compare logical QCOW/raw/VHD/archive bytes, then publish a checksum manifest |
-| `image/inventory.py` / `inventory.sh` | Read-only artifact inventory of package versions, licenses/dependencies and scoped ELF hashes; no runtime scanner |
+| `image/inventory.py` / `inventory.sh` | Build-only, read-only inventory; four bounded standard-library file workers with aggregation on the caller thread. Unchanged native hashes are reconciled against the earlier serial inventory; no runtime scanner |
 | `image/scan.sh` | Maintained Syft/Trivy scan on read-only root/boot/EFI; retain dated results without suppression |
 | `Makefile` | Standard source-check, image, export, inventory and scan entry points |
 | `tests/test_guest.py` | Synthetic device/admission fixtures, bounded failure/retry, API-key lifecycle and NGINX configuration-injection rejection |
 | `tests/test_launcher.py` | Credential privacy at the exec boundary and rejection of malformed credentials |
 | `tests/test_lock.py` | Reject missing hashes and a direct wheel URL whose pinned checksum disagrees with the lock |
-| `tests/smoke-guest.sh` | Disposable ordinary UEFI VM: verify bootstrap, package/module policy, failed GPU admission, no listener/key, actual loopback-only IP policy, running-service inventory and installed parser/compiler checks |
+| `tests/smoke-guest.sh` | Boot shipped GRUB/kernel, grow disk/filesystem, reject unsigned modules and ordinary-VM inference, exercise network restrictions and reboot the same VM |
+| `tests/check-file-lock-accounting.py` | Bounded synthetic POSIX lock allocation under a 96 MiB service cgroup; verify actual slab charges |
 | `tests/inspect-image.sh` | Read-only, size-bounded scan for residual identities/private-key headers plus installed-package extraction |
 | `.github/workflows/check.yml` | Source checks with a pinned checkout action and read-only token; no image build or cloud deployment |
 
@@ -65,7 +69,7 @@ The ordinary boot checks recorded the running services. GPU persistence is expec
 | `systemd-journald` | OS diagnostics use a bounded volatile journal; inference and HTTPS stdout/stderr are discarded |
 | `dbus` / `systemd-logind` | Standard OS coordination and trusted operator login sessions; no inference API or telemetry collector |
 | `ssh` | Restricted operator administration and per-boot API-credential retrieval; root/password SSH is disabled and the operator channel remains trusted |
-| `getty@tty1` / `serial-getty@ttyS0` | Retained local/serial recovery consoles; these are OS login services, not application endpoints |
+| `serial-getty@ttyS0` | Serial recovery login; virtual display/input drivers are compiled out. Installed getty unit definitions do not imply a working graphical or virtual terminal |
 | `user@1000` | Observed because the smoke test logs in as the operator; it is a login-session user manager, not an inference service |
 | `cloud-init*` | First-boot networking, operator public key and public model setup; optional telemetry reporting and hotplug listener are disabled |
 | AppArmor and filesystem/boot maintenance | Retain distribution policy loading, filesystem checks and maintenance; these are not additional inference daemons |
@@ -73,3 +77,5 @@ The ordinary boot checks recorded the running services. GPU persistence is expec
 The removed Azure provisioning daemon, Ubuntu Pro, crash reporters, unattended update tasks, optional hotplug listener, suspend/hibernate and pstore services do not return as dependencies of the new engine.
 
 The replacement [minimal kernel](../kernel/README.md) is Linux 7.2.10, built from an explicit allowlist. Its module signatures are enforced by that kernel; its build key is not a Canonical or provider Secure Boot key. The previous HWE scanner totals are historical, and cannot be carried forward as confirmed vulnerabilities in the new kernel. Review the new upstream component and compiled feature set separately; changing the package name is not a vulnerability fix.
+
+For the remaining Secure Boot work, [Azure documents custom UEFI keys through Gallery image-version REST settings](https://learn.microsoft.com/en-us/azure/virtual-machines/trusted-launch-secure-boot-custom-uefi), including a `TrustedLaunchAndConfidentialVmSupported` image definition and an additional `db` certificate. [GCP documents certificate enrollment when creating the image](https://docs.cloud.google.com/compute/shielded-vm/docs/creating-shielded-images), including `--signature-database-file`; supplied databases replace their defaults, so the complete boot chain must remain trusted. These documented mechanisms are not evidence that this image has been PE-signed, enrolled or booted with cloud Secure Boot. The module signatures already tested inside the custom kernel are a separate check.

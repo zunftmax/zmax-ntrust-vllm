@@ -2,7 +2,7 @@
 
 Zmax is proud to support and open source these reference images for trusted and confidential inference and token streaming. This repository is the vLLM image in the ntrust family: a focused VM image for serving vLLM through HTTPS inside a confidential NVIDIA GPU VM. One guest, two disk formats: Azure fixed VHD and GCP raw-disk archive. This repository packages **vLLM 0.31.0**, without another inference engine or remote inference fallback.
 
-**Status:** experimental core image. Linux build, Azure/GCP export comparisons, ordinary-VM rejection and network-policy checks, and installed parser/compiler checks passed. The [dated SBOM, scan and validation evidence](sbom/2026-10-12/README.md) are published with the image hashes and finding dispositions. Cloud import, confidential H100 execution and public ACME issuance have not been validated. Customer verification of the image and TLS identity is deferred. Do not interpret a successful local build as a confidential-computing proof.
+**Status:** experimental core image, built with the custom Linux 7.2.10 kernel: 838 enabled configuration symbols and six signed loadable modules, down from 10,049 and 6,908. Fresh Linux builds, ordinary UEFI boot/reboot, disk expansion, enforced module signatures, network isolation and provider-export comparisons passed. The [installed SBOM, full scan and validation evidence](sbom/2026-10-12-minimal-kernel/README.md) include image hashes and unresolved findings. Kernel PE signing and provider Secure Boot enrollment remain to be implemented; Azure/GCP boot, confidential H100 execution and public ACME issuance remain untested. Customer verification and image sealing are deferred.
 
 The sibling project is [zmax-ntrust-sglang](https://github.com/ZUNFTMAX/zmax-ntrust-sglang).
 
@@ -18,7 +18,7 @@ Client ── TLS 1.3 / JSON or SSE ── cloud TCP forwarding ── guest NGI
 
 NGINX obtains its certificate directly from Let's Encrypt with TLS-ALPN-01. Only `GET /v1/models` and `POST /v1/chat/completions` are public. Responses return over the client's existing HTTPS connection; streaming uses SSE. Keep any load balancer at layer 4 so TLS terminates in the guest.
 
-The guest requires SEV-SNP or TDX, exactly one NVIDIA GPU in production CC-On mode, successful local NVIDIA verification, no swap, and a ready inference backend before serving. NVIDIA supplies GPU attestation, SPDM and link encryption. The project adds no thread pool, spinlock or GPU encryption implementation.
+The guest requires SEV-SNP or TDX, exactly one NVIDIA GPU in production CC-On mode, successful local NVIDIA verification, no swap, and a ready inference backend before serving. NVIDIA supplies GPU attestation, SPDM and link encryption. The guest adds no project-owned thread pool, spinlock or GPU encryption implementation.
 
 ## Privacy and key lifecycle
 

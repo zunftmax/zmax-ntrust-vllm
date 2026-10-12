@@ -18,8 +18,16 @@ ExecStart=/usr/local/lib/ntrust/gpu-ready
 RemainAfterExit=yes
 TimeoutStartSec=180
 LimitCORE=0
+MemorySwapMax=0
 UMask=0077
 ProtectSystem=strict
 ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
 NoNewPrivileges=yes
 TemporaryFileSystem=/tmp:rw,nosuid,nodev,noexec,mode=1777 /var/tmp:rw,nosuid,nodev,noexec,mode=1777

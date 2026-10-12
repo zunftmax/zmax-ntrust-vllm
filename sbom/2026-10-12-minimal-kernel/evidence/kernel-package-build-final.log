@@ -1,0 +1,113 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+100   989  100   989    0     0  17347      0 --:--:-- --:--:-- --:--:-- 17660
+pub   rsa4096 2011-09-23 [SC]
+      647F28654894E3BD457199BE38DBBDC86092693E
+uid           [ unknown] Greg Kroah-Hartman <gregkh@kernel.org>
+sub   rsa4096 2011-09-23 [E]
+
+make: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/linux-7.2.10'
+make[1]: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/build/linux'
+#
+# configuration written to .config
+#
+make[1]: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/build/linux'
+make: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/linux-7.2.10'
+PASS: 282 explicit settings; 833 built-in symbols; 5 module symbols
+make: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/linux-7.2.10'
+make[1]: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/build/linux'
+  SYNC    include/config/auto.conf.cmd
+  DESCEND objtool
+  CC      block/bdev.o
+  AR      block/built-in.a
+  AR      built-in.a
+  AR      built-in-fixup.a
+  COPY    vmlinux.a
+  LD      vmlinux.o
+  MODPOST Module.symvers
+  UPD     include/generated/utsversion.h
+  CC      init/version-timestamp.o
+  KSYMS   .tmp_vmlinux0.kallsyms.S
+  AS      .tmp_vmlinux0.kallsyms.o
+  LD      .tmp_vmlinux1
+  NM      .tmp_vmlinux1.syms
+  KSYMS   .tmp_vmlinux1.kallsyms.S
+  AS      .tmp_vmlinux1.kallsyms.o
+  LD      .tmp_vmlinux2
+  NM      .tmp_vmlinux2.syms
+  KSYMS   .tmp_vmlinux2.kallsyms.S
+  AS      .tmp_vmlinux2.kallsyms.o
+  LD      vmlinux.unstripped
+  NM      System.map
+  SORTTAB vmlinux.unstripped
+  OBJCOPY vmlinux
+  GEN     modules.builtin.modinfo
+  GEN     modules.builtin
+  CC      arch/x86/boot/version.o
+  VOFFSET arch/x86/boot/compressed/../voffset.h
+  OBJCOPY arch/x86/boot/compressed/vmlinux.bin
+  RELOCS  arch/x86/boot/compressed/vmlinux.relocs
+  CC      arch/x86/boot/compressed/kaslr.o
+  CC      arch/x86/boot/compressed/misc.o
+  GZIP    arch/x86/boot/compressed/vmlinux.bin.gz
+  MKPIGGY arch/x86/boot/compressed/piggy.S
+  AS      arch/x86/boot/compressed/piggy.o
+  LD      arch/x86/boot/compressed/vmlinux
+  ZOFFSET arch/x86/boot/zoffset.h
+  OBJCOPY arch/x86/boot/vmlinux.bin
+  AS      arch/x86/boot/header.o
+  LD      arch/x86/boot/setup.elf
+  OBJCOPY arch/x86/boot/setup.bin
+  BUILD   arch/x86/boot/bzImage
+Kernel: arch/x86/boot/bzImage is ready  (#4)
+make[1]: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/build/linux'
+make: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/linux-7.2.10'
+make: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/open-gpu-kernel-modules-580.178.04'
+make -C src/nvidia
+make[1]: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/open-gpu-kernel-modules-580.178.04/src/nvidia'
+make[1]: Nothing to be done for 'default'.
+make[1]: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/open-gpu-kernel-modules-580.178.04/src/nvidia'
+cd kernel-open/nvidia/ && ln -sf ../../src/nvidia/_out/Linux_x86_64/nv-kernel.o nv-kernel.o_binary
+make: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/open-gpu-kernel-modules-580.178.04'
+make: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/open-gpu-kernel-modules-580.178.04/kernel-open'
+make[1]: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/linux-7.2.10'
+make[2]: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/open-gpu-kernel-modules-580.178.04/kernel-open'
+/home/azureuser/zmax-ntrust-remediation-20261012/sources/open-gpu-kernel-modules-580.178.04/kernel-open/pahole.sh: 66: exec: pahole: not found
+warning: pahole version differs from the one used to build the kernel
+  The kernel was built with: 0
+  You are using:
+  MODPOST Module.symvers
+make[2]: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/open-gpu-kernel-modules-580.178.04/kernel-open'
+make[1]: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/linux-7.2.10'
+make: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/open-gpu-kernel-modules-580.178.04/kernel-open'
+make: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/linux-7.2.10'
+make[1]: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/build/linux'
+  SYMLINK /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/build
+  INSTALL /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/modules.order
+  INSTALL /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/modules.builtin
+  INSTALL /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/modules.builtin.modinfo
+  INSTALL /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/kpp.ko
+  STRIP   /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/kpp.ko
+  SIGN    /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/kpp.ko
+  INSTALL /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecdsa_generic.ko
+  STRIP   /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecdsa_generic.ko
+  SIGN    /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecdsa_generic.ko
+  INSTALL /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecc.ko
+  STRIP   /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecc.ko
+  SIGN    /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecc.ko
+  INSTALL /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecdh_generic.ko
+  STRIP   /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecdh_generic.ko
+  SIGN    /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecdh_generic.ko
+  DEPMOD  /home/azureuser/zmax-ntrust-remediation-20261012/build/package.jUXADp/usr/lib/modules/7.2.10-ntrust
+make[1]: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/build/linux'
+make: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/linux-7.2.10'
+dpkg-deb: building package 'ntrust-kernel' in '/home/azureuser/zmax-ntrust-remediation-20261012/artifacts/ntrust-kernel.deb'.
+make: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/linux-7.2.10'
+make[1]: Entering directory '/home/azureuser/zmax-ntrust-remediation-20261012/build/linux'
+  INSTALL /home/azureuser/zmax-ntrust-remediation-20261012/build/headers.kg9J0Y/usr/include
+make[1]: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/build/linux'
+make: Leaving directory '/home/azureuser/zmax-ntrust-remediation-20261012/sources/linux-7.2.10'
+dpkg-deb: building package 'linux-libc-dev' in '/home/azureuser/zmax-ntrust-remediation-20261012/artifacts/ntrust-linux-headers.deb'.
+Built 7.2.10-ntrust. Secure Boot enrollment and confidential GPU/cloud boot are not established.

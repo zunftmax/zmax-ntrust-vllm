@@ -1,0 +1,35 @@
+{
+  "baseline": "sbom/2026-10-12/inventory.json.gz",
+  "removed": {
+    "amd64-microcode": "3.20251202.1ubuntu0.24.04.1",
+    "busybox-initramfs": "1:1.36.1-6ubuntu3.1",
+    "cpio": "2.15+dfsg-1ubuntu2.1",
+    "dracut-install": "060+5-1ubuntu3.4",
+    "initramfs-tools": "0.142ubuntu25.8",
+    "initramfs-tools-bin": "0.142ubuntu25.8",
+    "initramfs-tools-core": "0.142ubuntu25.8",
+    "intel-microcode": "3.20260210.0ubuntu0.24.04.1",
+    "iucode-tool": "2.3.1-3build1",
+    "klibc-utils": "2.0.13-4ubuntu0.2",
+    "libklibc": "2.0.13-4ubuntu0.2",
+    "linux-image-7.0.0-38-generic": "7.0.0-38.38~24.04.4",
+    "linux-image-virtual-hwe-24.04": "7.0.0-38.38~24.04.4",
+    "linux-main-modules-v4l2loopback-7.0.0-38-generic": "7.0.0-38.38~24.04.4",
+    "linux-main-modules-zfs-7.0.0-38-generic": "7.0.0-38.38~24.04.4",
+    "linux-modules-7.0.0-38-generic": "7.0.0-38.38~24.04.4",
+    "linux-modules-nvidia-580-server-open-7.0.0-38-generic": "7.0.0-38.38~24.04.4+1",
+    "linux-modules-nvidia-580-server-open-generic-hwe-24.04": "7.0.0-38.38~24.04.4+1",
+    "microcode-initrd": "3build1",
+    "wireless-regdb": "2026.05.30-0ubuntu1~24.04.1"
+  },
+  "added": {
+    "ntrust-kernel": "7.2.10-1"
+  },
+  "changed": {
+    "linux-libc-dev": {
+      "before": "6.8.0-146.146",
+      "after": "7.2.10-1+ntrust1"
+    }
+  },
+  "python_versions_unchanged": true
+}

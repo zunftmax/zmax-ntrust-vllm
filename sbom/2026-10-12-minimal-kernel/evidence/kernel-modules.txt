@@ -1,0 +1,6 @@
+kernel/crypto/ecc.ko
+kernel/crypto/ecdh_generic.ko
+kernel/crypto/ecdsa_generic.ko
+kernel/crypto/kpp.ko
+updates/nvidia/nvidia-uvm.ko
+updates/nvidia/nvidia.ko

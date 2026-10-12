@@ -1,0 +1,4 @@
+PASS: actual CPU Safetensors save/load works; no GPU/model inference claimed
+PASS: CUDA SM90a and Python-extension headers compile without a GPU
+vLLM parser test used a mocked device type; this is not GPU execution
+PASS: installed upstream parser accepts the launcher and privacy options; no model/GPU executed

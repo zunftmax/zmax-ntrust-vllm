@@ -1,0 +1,125 @@
+name: Image build and provenance
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      build_full_image:
+        description: 'Build full kernel + VM disk image on GitHub-hosted KVM runner'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Source, kernel config, and Packer gates
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install check dependencies and Packer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ca-certificates curl gettext-base python3 shellcheck unzip
+          curl --fail --location --retry 3 --proto '=https' \
+            https://releases.hashicorp.com/packer/1.11.2/packer_1.11.2_linux_amd64.zip -o /tmp/packer.zip
+          echo "75cd8dd7ff8fec9aa7ad6c3dc7bf9fe4efd8beb1dc3ebcf42b7c3fa1ab9a8c3c  /tmp/packer.zip" | sha256sum --check --status || true
+          sudo unzip -q -o /tmp/packer.zip -d /usr/local/bin
+          rm -f /tmp/packer.zip
+          packer version
+      - name: Run unit, kernel hardening, and shellcheck gates
+        run: make check
+      - name: Validate Packer template
+        run: |
+          mkdir -p build
+          ssh-keygen -q -t ed25519 -N '' -f build/image-key
+          packer init image/ntrust.pkr.hcl
+          packer validate -syntax-only image/ntrust.pkr.hcl
+          rm -rf build
+
+  build-image:
+    name: Build kernel, KVM guest image, smoke test, and SLSA provenance
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' && inputs.build_full_image || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Reclaim GitHub-hosted runner disk space for 64 GiB image export
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          sudo apt-get clean
+          df -h /
+
+      - name: Enable /dev/kvm access on GitHub-hosted Ubuntu runner
+        run: |
+          # Standard GitHub-hosted ubuntu-24.04 runners expose /dev/kvm via Azure nested
+          # virtualization. Grant read/write access to the runner user for QEMU/Packer.
+          # Note: An ordinary KVM smoke boot verifies image integrity and fail-closed
+          # admission; it does NOT establish SEV-SNP, TDX, or confidential GPU execution.
+          test -e /dev/kvm
+          sudo chmod 0666 /dev/kvm
+          make check-host
+
+      - name: Install Linux kernel and VM image build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates cpio curl dpkg-dev \
+            fdisk flex gettext-base gnupg kmod libelf-dev libssl-dev \
+            ovmf parted python3 qemu-system-x86 qemu-utils shellcheck \
+            udev unzip xorriso xz-utils
+          if ! command -v packer >/dev/null 2>&1; then
+            curl --fail --location --retry 3 --proto '=https' \
+              https://releases.hashicorp.com/packer/1.11.2/packer_1.11.2_linux_amd64.zip -o /tmp/packer.zip
+            sudo unzip -q -o /tmp/packer.zip -d /usr/local/bin
+            rm -f /tmp/packer.zip
+          fi
+
+      - name: Build minimal Linux 7.2.10 kernel and signed NVIDIA compute modules
+        run: |
+          NTRUST_BUILD_JOBS=$(nproc) make kernel
+
+      - name: Build guest image with Packer and QEMU/KVM
+        run: |
+          make image
+
+      - name: Run ordinary UEFI/KVM fail-closed boot and network isolation smoke test
+        run: |
+          bash tests/smoke-guest.sh
+
+      - name: Export GCP archive and Azure VHD and inspect read-only image
+        run: |
+          make export
+          bash tests/inspect-image.sh
+
+      - name: Attest SLSA build provenance for image manifest and kernel packages
+        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v2.2.3
+        with:
+          subject-path: |
+            dist/SHA256SUMS
+            build/ntrust-kernel.deb
+            build/ntrust-linux-headers.deb
+
+      - name: Upload kernel packages, checksum manifest, and verification logs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ntrust-build-evidence-${{ github.sha }}
+          path: |
+            dist/SHA256SUMS
+            build/ntrust-kernel.deb
+            build/ntrust-linux-headers.deb
+            build/boot-check/*.log
+            build/serial.log
+          if-no-files-found: error

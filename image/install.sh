@@ -142,8 +142,32 @@ systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target 
 install -d /etc/systemd/sleep.conf.d /etc/systemd/pstore.conf.d
 printf '[Sleep]\nAllowSuspend=no\nAllowHibernation=no\nAllowHybridSleep=no\nAllowSuspendThenHibernate=no\n' > /etc/systemd/sleep.conf.d/ntrust.conf
 printf '[PStore]\nStorage=none\n' > /etc/systemd/pstore.conf.d/ntrust.conf
-# Prevent userspace-triggered pstore writes and persistent application journals.
-printf 'kernel.dmesg_restrict=1\nkernel.kptr_restrict=2\nkernel.unprivileged_bpf_disabled=1\nkernel.perf_event_paranoid=3\n' > /etc/sysctl.d/99-ntrust-kernel.conf
+# Prevent userspace-triggered pstore writes, ptrace, and network redirect abuse.
+cat > /etc/sysctl.d/99-ntrust-kernel.conf <<'EOF'
+kernel.dmesg_restrict=1
+kernel.kptr_restrict=2
+kernel.unprivileged_bpf_disabled=1
+kernel.perf_event_paranoid=3
+kernel.yama.ptrace_scope=3
+kernel.sysrq=0
+dev.tty.ldisc_autoload=0
+fs.suid_dumpable=0
+fs.protected_hardlinks=1
+fs.protected_symlinks=1
+fs.protected_fifos=2
+fs.protected_regular=2
+net.ipv4.tcp_syncookies=1
+net.ipv4.conf.all.accept_redirects=0
+net.ipv4.conf.default.accept_redirects=0
+net.ipv4.conf.all.send_redirects=0
+net.ipv4.conf.default.send_redirects=0
+net.ipv4.conf.all.accept_source_route=0
+net.ipv4.conf.default.accept_source_route=0
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.icmp_echo_ignore_broadcasts=1
+net.ipv4.icmp_ignore_bogus_error_responses=1
+EOF
 install -d /etc/systemd/journald.conf.d
 printf '[Journal]\nStorage=volatile\nRuntimeMaxUse=32M\nForwardToSyslog=no\n' > /etc/systemd/journald.conf.d/ntrust.conf
 systemctl enable systemd-resolved.service systemd-timesyncd.service

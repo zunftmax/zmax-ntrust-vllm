@@ -7,7 +7,18 @@ rm -f /root/.ssh/authorized_keys /etc/ssh/ssh_host_* /root/.bash_history
 systemctl stop systemd-random-seed.service
 rm -f /var/lib/systemd/random-seed
 rm -f /etc/netplan/50-cloud-init.yaml
-printf 'PermitRootLogin no\nPasswordAuthentication no\n' > /etc/ssh/sshd_config.d/00-ntrust.conf
+cat > /etc/ssh/sshd_config.d/00-ntrust.conf <<'EOF'
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+X11Forwarding no
+AllowTcpForwarding no
+AllowAgentForwarding no
+PermitTunnel no
+GatewayPorts no
+MaxAuthTries 3
+EOF
 rm -rf /tmp/ntrust /tmp/packer* /var/tmp/*
 find /var/log -type f -exec truncate -s 0 {} +
 fstrim -av || true

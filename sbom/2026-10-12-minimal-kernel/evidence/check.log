@@ -1,0 +1,18 @@
+python3 -m unittest discover -s tests -v
+test_nginx_config_injection_is_rejected_before_start (test_guest.GuestGates.test_nginx_config_injection_is_rejected_before_start) ... ok
+test_ready_failure_does_not_create_key (test_guest.GuestGates.test_ready_failure_does_not_create_key) ... ok
+test_render_preserves_nginx_variables_and_memory_only_acme (test_guest.GuestGates.test_render_preserves_nginx_variables_and_memory_only_acme) ... ok
+test_swap_compiled_out_requires_matching_config (test_guest.GuestGates.test_swap_compiled_out_requires_matching_config) ... ok
+test_swap_prevents_startup (test_guest.GuestGates.test_swap_prevents_startup) ... ok
+test_untrusted_boot_never_enables_gpu (test_guest.GuestGates.test_untrusted_boot_never_enables_gpu) ... ok
+test_verification_precedes_ready_and_key_for_both_cpu_tees (test_guest.GuestGates.test_verification_precedes_ready_and_key_for_both_cpu_tees) ... ok
+test_verification_retry_is_bounded_and_discards_failed_evidence (test_guest.GuestGates.test_verification_retry_is_bounded_and_discards_failed_evidence) ... ok
+test_key_is_private_and_absent_from_argv (test_launcher.Launcher.test_key_is_private_and_absent_from_argv) ... ok
+test_malformed_key_cannot_start_server (test_launcher.Launcher.test_malformed_key_cannot_start_server) ... ok
+test_every_pin_has_hashes_and_direct_url_hash_agrees (test_lock.DependencyLock.test_every_pin_has_hashes_and_direct_url_hash_agrees) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.281s
+
+OK
+shellcheck guest/gpu-ready guest/https-start guest/inference-ready guest/status image/*.sh tests/*.sh kernel/*.sh

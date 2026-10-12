@@ -1,0 +1,68 @@
+test "$(uname -s)" = Linux
+test "$(uname -m)" = x86_64
+test -r /dev/kvm -a -w /dev/kvm
+bash image/inventory.sh
+Installed: 303 Debian packages and 200 Python distributions; enumerating native-file candidates
+Inspecting 152694 paths for ELF headers
+Examining path 2500/152694; 105 ELF files inventoried
+Examining path 5000/152694; 193 ELF files inventoried
+Examining path 7500/152694; 335 ELF files inventoried
+Examining path 10000/152694; 1571 ELF files inventoried
+Examining path 12500/152694; 2861 ELF files inventoried
+Examining path 15000/152694; 4123 ELF files inventoried
+Examining path 17500/152694; 5328 ELF files inventoried
+Examining path 20000/152694; 6607 ELF files inventoried
+Examining path 22500/152694; 7869 ELF files inventoried
+Examining path 25000/152694; 9116 ELF files inventoried
+Examining path 27500/152694; 10399 ELF files inventoried
+Examining path 30000/152694; 11646 ELF files inventoried
+Examining path 32500/152694; 12854 ELF files inventoried
+Examining path 35000/152694; 14134 ELF files inventoried
+Examining path 37500/152694; 15427 ELF files inventoried
+Examining path 40000/152694; 16659 ELF files inventoried
+Examining path 42500/152694; 17936 ELF files inventoried
+Examining path 45000/152694; 19172 ELF files inventoried
+Examining path 47500/152694; 20413 ELF files inventoried
+Examining path 50000/152694; 21632 ELF files inventoried
+Examining path 52500/152694; 22878 ELF files inventoried
+Examining path 55000/152694; 24117 ELF files inventoried
+Examining path 57500/152694; 25345 ELF files inventoried
+Examining path 60000/152694; 26595 ELF files inventoried
+Examining path 62500/152694; 27859 ELF files inventoried
+Examining path 65000/152694; 29162 ELF files inventoried
+Examining path 67500/152694; 30401 ELF files inventoried
+Examining path 70000/152694; 31605 ELF files inventoried
+Examining path 72500/152694; 32848 ELF files inventoried
+Examining path 75000/152694; 34098 ELF files inventoried
+Examining path 77500/152694; 35313 ELF files inventoried
+Examining path 80000/152694; 36561 ELF files inventoried
+Examining path 82500/152694; 37789 ELF files inventoried
+Examining path 85000/152694; 39068 ELF files inventoried
+Examining path 87500/152694; 40324 ELF files inventoried
+Examining path 90000/152694; 41572 ELF files inventoried
+Examining path 92500/152694; 42812 ELF files inventoried
+Examining path 95000/152694; 42908 ELF files inventoried
+Examining path 97500/152694; 42908 ELF files inventoried
+Examining path 100000/152694; 42908 ELF files inventoried
+Examining path 102500/152694; 42910 ELF files inventoried
+Examining path 105000/152694; 42915 ELF files inventoried
+Examining path 107500/152694; 42930 ELF files inventoried
+Examining path 110000/152694; 42930 ELF files inventoried
+Examining path 112500/152694; 42930 ELF files inventoried
+Examining path 115000/152694; 42930 ELF files inventoried
+Examining path 117500/152694; 42930 ELF files inventoried
+Examining path 120000/152694; 42930 ELF files inventoried
+Examining path 122500/152694; 42950 ELF files inventoried
+Examining path 125000/152694; 42973 ELF files inventoried
+Examining path 127500/152694; 43015 ELF files inventoried
+Examining path 130000/152694; 43164 ELF files inventoried
+Examining path 132500/152694; 43164 ELF files inventoried
+Examining path 135000/152694; 43171 ELF files inventoried
+Examining path 137500/152694; 43171 ELF files inventoried
+Examining path 140000/152694; 43171 ELF files inventoried
+Examining path 142500/152694; 43178 ELF files inventoried
+Examining path 145000/152694; 43194 ELF files inventoried
+Examining path 147500/152694; 43198 ELF files inventoried
+Examining path 150000/152694; 43198 ELF files inventoried
+Examining path 152500/152694; 43206 ELF files inventoried
+Inventory: 303 Debian packages, 200 Python distributions, 43213 native ELF files (overlapping package contents)

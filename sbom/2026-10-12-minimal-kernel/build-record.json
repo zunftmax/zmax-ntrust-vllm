@@ -1,0 +1,138 @@
+{
+  "engine": "vllm",
+  "build_source_commit": "c7e89cc78556d75731ae43b84156a4aac1f1b6f9",
+  "collected_source_commit": "529cb4b46970dc739c0d0cd5937ef151e7fa17d8",
+  "build_host": "axp.computer",
+  "build_platform": "Linux x86_64 KVM",
+  "virtual_disk_bytes": 68719476736,
+  "artifacts": [
+    {
+      "path": "dist/qemu/ntrust.qcow2",
+      "sha256": "6bf42d43c568bd65f11fc5abad411c3557d4baa797ab4827da1ce5c34078a5b6",
+      "bytes": 16385048576,
+      "allocated_bytes_on_builder": 16386228224
+    },
+    {
+      "path": "dist/ntrust-gcp.tar.gz",
+      "sha256": "a0e215b9f4fda68446c4ccb47e89aad9609e8691ddf09ecdbee96a528b68f4e8",
+      "bytes": 5844399713,
+      "allocated_bytes_on_builder": 5844406272
+    },
+    {
+      "path": "dist/ntrust-azure.vhd",
+      "sha256": "b8469efe51fdfbc009f7dcd16dd79804aae6f390f6b1496a786d78558b3ac797",
+      "bytes": 68719477248,
+      "allocated_bytes_on_builder": 16249438208
+    }
+  ],
+  "kernel_packages": [
+    {
+      "path": "build/ntrust-kernel.deb",
+      "sha256": "faf062f38ff8dcdea42e1ed6ce8df1ae9efed99b731636a42ecf846e4a2d44b6",
+      "bytes": 14127908
+    },
+    {
+      "path": "build/ntrust-linux-headers.deb",
+      "sha256": "702e7c80fbfcb8be2b4be488c2708dd3ce9315b6c7d67bf11ac659f01a39670d",
+      "bytes": 1535726
+    }
+  ],
+  "collected_source_sha256": {
+    "guest/cloud-init.example.yaml": "760ee422167260bc4d98d07347e4024f4bde6ef48dd79c9f44b39f5975768e70",
+    "guest/fetch-model": "a1b28259901c37933d4a54b8e4cd03d2f03ddfda35c141ec294961215028c343",
+    "guest/gpu-ready": "1cfa483d65b2bc7cb8e6b03af5aa0c83a032de866ed5418f25abe8201c089367",
+    "guest/https-start": "3cbd2370340843f1d014efc2f8e71fb9a560f16c0da4d42ffa6cff63f56be2f7",
+    "guest/inference-ready": "721053d54a5a50d86db2b41682ea6ba042c64c5bde6db5c7453f63b49fbb6647",
+    "guest/inference-start": "99626ac0a8e23d6feaed5eb0f9b35a43a6c6cfbc72554095a5b15f9991d24512",
+    "guest/model.json": "24d3eb71fd437fd0c65de87cd4322c2bfb50a8859ff48cd7a463d72375be52e8",
+    "guest/nginx.conf.template": "bae729b75cfd2fdf3b8bfef1ff7cfb938f4a57783539b29b9afb7712aa477afc",
+    "guest/runtime.env.example": "23bb5cbbec87c9e22c2342e3cafdc548c0ed77c0a1399b2e0ec5aabe970c42a3",
+    "guest/status": "f919f047e62810a87503d3c9cec09072654e6cf06211217443dc822bf6ce32f5",
+    "guest/systemd/ntrust-gpu.service": "5f8882408f79c8eaaf3ea3c24bb6680ed2f4fe4fcb0e4c8a2136bff18b51b0d6",
+    "guest/systemd/ntrust-https.service": "7dfe5a61a69e85e184f2104e61ad492efb2aad9813a853cf9835f9d5c470d600",
+    "guest/systemd/ntrust-inference.service": "6b80a39bd4a57efa678eb0121ece19b28c7da329c14342cff4ef358a9ff61380",
+    "image/build-cloud-init.yaml": "3061cfeac98845da7256de947d9a5c3f872eff02c6b29e183db12de26811171a",
+    "image/check-engine.py": "2178c2e74c9c8baf8943d003ccd729ccf11d21cd299f3ab09d6f8a9aacb83405",
+    "image/check-installed.sh": "827dd216ffcbc1fe06c0bc8f2f16c27e2aa01fbfdfe8734c5638224a3bfc3ea7",
+    "image/clouds.md": "c45f6a7917d15fbba43b74ff84395217c5a558b2444057969d505a78a4a690ee",
+    "image/export.sh": "4a9801904804fb63595bdaedc3b330fab16e5e0c93ab42cafd244b88772411b7",
+    "image/finalize.sh": "ff3a4bef4a7ba1515f225eb93149f9c3919e9f5c814674817891b0d036956c4e",
+    "image/install.sh": "23ad332eacd377dacc9bdd86922dc3506d1a4bb95d69f7e2afbf76af3f422c58",
+    "image/inventory.py": "1283803dcd6d2dd0dc55af20be68f889a87cbfcde63560824658d8f821990b30",
+    "image/inventory.sh": "094f431328dc3188dbe03a66ab3390c2568a8fd168a7401166d1b4f25274998a",
+    "image/ntrust.pkr.hcl": "d077cf135c25acb5b16e60c450302c892ed3145e42e39c5add383f1ab664c974",
+    "image/requirements.in": "5a98c239e962c9dea3752c9736e393e934ac2fd3fc145b93ae9c39a585a0f783",
+    "image/requirements.lock": "8b0d5cd5324754f7b464e889c6a7829741c483ac024e429a94c9346889be06cc",
+    "image/scan.sh": "15f40211d0cf4cd83863196e97282bfc43f4d77b4547caf6d531f3cda925edd2",
+    "kernel/Kconfig": "c5a1fdd200a940da3dd524114ffd3b48d3f0f8f0086d3b2aac01459cb1e69f90",
+    "kernel/README.md": "423469f4cb6bc094329db3feff6767dba950b999994bd1af647198290b6e21b3",
+    "kernel/build.sh": "2ff9776169fa78dcd22f8bf8b13ba20ae8f885eef535ea1736ac140f72e6831c",
+    "kernel/check-config.py": "4880395d08d2e5c88bd325d7cd334d6ce5759e24d897232a14ae8de0df48b465",
+    "kernel/patches/0001-account-file-lock-caches.patch": "02d461ceafa1781ff447610d8208297346a85ffbb8c7421083a06b69190e574f",
+    "kernel/required.config": "f098326673bf89794067e871339edfe9cf7e20ca7477df56ae4feb4bcad9f583",
+    "tests/check-file-lock-accounting.py": "338359c93a6f985e749b382184f57e67d34a3ea5da4c6aea671ccf86214cdc3a",
+    "tests/inspect-image.sh": "220b6d11e60ce117cbeeae387a350abbf5ebb3a97963230928ff4072aada481e",
+    "tests/smoke-guest.sh": "e623cd764a5f83c0a68a518031d3a559399deb13fe5f28598e5629b5f42f3557",
+    "tests/test_guest.py": "71aaf86d0fe39b94269826b9c29922ac8f4f2583999ebf0a5e6d80a814c32a68",
+    "tests/test_launcher.py": "e7c95c9be7e9669f9990d86ca4e66d550b3f9c29b168dd130f824e6e989e5424",
+    "tests/test_lock.py": "c1c338a3e7f899587c0da834561e0be817308230aa125194cfb99395d178a790"
+  },
+  "kernel": {
+    "upstream_version": "7.2.10",
+    "release": "7.2.10-ntrust",
+    "image_sha256": "4874229d6865137e6ef55a7f72fa75e0ae88f926944b4523cb3fa53de7fc1bc4",
+    "config_sha256": "bc5f5fbe3a4abbf9b932ec6315d9b7d5616572ccaf5b06823b0d06f7ac81d04f",
+    "nvidia_version": "580.178.04",
+    "enabled_config_symbols": 838,
+    "loadable_modules": 6,
+    "module_file_bytes": 22540830,
+    "built_in_module_units": 82,
+    "module_files": [
+      {
+        "path": "/usr/lib/modules/7.2.10-ntrust/updates/nvidia/nvidia-uvm.ko",
+        "sha256": "5a079b5510b61a63f7118b06dc546d071023d1b0f2984679d42bd9c3c7d1b347",
+        "bytes": 3748025
+      },
+      {
+        "path": "/usr/lib/modules/7.2.10-ntrust/updates/nvidia/nvidia.ko",
+        "sha256": "4262812e4845e5c1dc0c6c8fb5eebaf53925011a478e775cec879ceebcb951c0",
+        "bytes": 18667041
+      },
+      {
+        "path": "/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecdsa_generic.ko",
+        "sha256": "924711301880f6232d8b624f47b8eda9989dc715c2c927a9da259e3677fc833c",
+        "bytes": 33417
+      },
+      {
+        "path": "/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecdh_generic.ko",
+        "sha256": "fe048ccca72f22abe399febf79d3e865e82ff0c12490b10c13bebed3598fb48f",
+        "bytes": 16153
+      },
+      {
+        "path": "/usr/lib/modules/7.2.10-ntrust/kernel/crypto/kpp.ko",
+        "sha256": "fdf16bb44944d4800545fe996ae6ec0d2ec14a11acd1666a54e474707d600650",
+        "bytes": 10601
+      },
+      {
+        "path": "/usr/lib/modules/7.2.10-ntrust/kernel/crypto/ecc.ko",
+        "sha256": "2f104eeda71800c0aac3a2b7f45a85493696aae53f23bd2d59076414330c3bbf",
+        "bytes": 65593
+      }
+    ],
+    "vmlinuz_bytes": 6664704
+  },
+  "evidence_limits": [
+    "No cloud import or launch",
+    "Kernel PE signing and provider Secure Boot enrollment are not implemented",
+    "No confidential CPU/GPU hardware test",
+    "No GPU model execution",
+    "No live ACME issuance",
+    "No customer attestation or image sealing"
+  ],
+  "notes": [
+    "Module sizes compare actual stored files; the distribution and custom build may use different compression.",
+    "Enabled Kconfig symbol counts include dependency and architecture symbols, not just drivers.",
+    "Inventory tooling was corrected after the image build to read installed payloads instead of optional package documentation; the disk was not modified.",
+    "allocated_bytes_on_builder is local allocation, not upload or guest filesystem size."
+  ]
+}

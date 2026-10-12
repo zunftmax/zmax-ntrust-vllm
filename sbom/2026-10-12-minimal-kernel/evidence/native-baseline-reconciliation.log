@@ -1,0 +1,3 @@
+PASS: all 43207 previously inventoried userspace ELF paths, sizes and SHA-256 hashes match the independently collected baseline.
+PASS: the only additional native inventory entries are the six new kernel modules.
+This checks bounded parallel hashing against the prior serial inventory; it does not claim GPU execution.

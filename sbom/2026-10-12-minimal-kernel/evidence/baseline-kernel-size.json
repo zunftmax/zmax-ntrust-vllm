@@ -1,0 +1,10 @@
+{
+  "modules": 6908,
+  "module_bytes": 178099324,
+  "kernels": {
+    "vmlinuz-7.0.0-38-generic": 17029512
+  },
+  "enabled_config_symbols": {
+    "config-7.0.0-38-generic": 10049
+  }
+}

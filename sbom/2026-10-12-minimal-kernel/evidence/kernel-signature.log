@@ -1,0 +1,12 @@
+[GNUPG:] NEWSIG
+gpg: Signature made Sun Oct 11 13:29:43 2026 UTC
+gpg:                using RSA key 647F28654894E3BD457199BE38DBBDC86092693E
+[GNUPG:] KEY_CONSIDERED 647F28654894E3BD457199BE38DBBDC86092693E 0
+[GNUPG:] SIG_ID 7vB0aldjAzjC2425QJvc0foW4z0 2026-10-11 1791725383
+[GNUPG:] GOODSIG 38DBBDC86092693E Greg Kroah-Hartman <gregkh@kernel.org>
+gpg: Good signature from "Greg Kroah-Hartman <gregkh@kernel.org>" [unknown]
+[GNUPG:] VALIDSIG 647F28654894E3BD457199BE38DBBDC86092693E 2026-10-11 1791725383 0 4 0 1 10 00 647F28654894E3BD457199BE38DBBDC86092693E
+[GNUPG:] TRUST_UNDEFINED 0 pgp
+gpg: WARNING: This key is not certified with a trusted signature!
+gpg:          There is no indication that the signature belongs to the owner.
+Primary key fingerprint: 647F 2865 4894 E3BD 4571  99BE 38DB BDC8 6092 693E

@@ -1,0 +1,1 @@
+PASS: 65536 POSIX locks charged 13023840 slab bytes to the bounded test cgroup
