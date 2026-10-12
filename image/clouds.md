@@ -15,7 +15,7 @@ cloud hardware acceptance tests.
 
 | Input | Required value / check |
 | --- | --- |
-| Hardware | Azure `Standard_NCC40ads_H100_v5` (40 vCPUs, one H100) or GCP `a3-highgpu-1g` with TDX. A CPU-only CVM cannot test inference |
+| Hardware | One CC-capable NVIDIA GPU (H100, H200, B100, B200) in CC-On mode on a SEV-SNP or TDX host. Validated path today: Azure `Standard_NCC40ads_H100_v5` (40 vCPUs, one H100) or GCP `a3-highgpu-1g` with TDX. Other CC-capable SKUs need per-SKU quota, launch, driver, and attestation validation; a CPU-only CVM cannot test inference |
 | Quota and capacity | Azure NCC family and total regional vCPU quota sufficient for 40 cores, plus actual NCC capacity. GCP confidential A3 availability and the appropriate H100 Spot quota. Approval is not a capacity reservation |
 | Account | Explicit Azure subscription or GCP project with image/storage/network/VM permissions and billing |
 | Network | Public IPv4/DNS hostname, TCP 443 to guest, SSH only from operator CIDR, outbound DNS/time/ACME/NVIDIA verification and public model download |

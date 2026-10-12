@@ -19,12 +19,11 @@ Environment=TORCH_HOME=/run/ntrust-inference/torch
 Environment=TORCHINDUCTOR_CACHE_DIR=/run/ntrust-inference/inductor
 Environment=TRITON_CACHE_DIR=/run/ntrust-inference/triton
 Environment=FLASHINFER_WORKSPACE_BASE=/run/ntrust-inference/flashinfer
-Environment=SGLANG_JIT_CACHE_DIR=/run/ntrust-inference/sglang-jit
 Environment=HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1
 Environment=DO_NOT_TRACK=1 OTEL_SDK_DISABLED=true PYTHONDONTWRITEBYTECODE=1
 Environment=VLLM_NO_USAGE_STATS=1 VLLM_DO_NOT_TRACK=1 VLLM_LOGGING_LEVEL=ERROR
 Environment=VLLM_HOST_IP=127.0.0.1 VLLM_CACHE_ROOT=/run/ntrust-inference/vllm
-Environment=VLLM_PLUGINS= SGLANG_DISABLE_OUTLINES_DISK_CACHE=1
+Environment=VLLM_PLUGINS=
 Environment=OMP_NUM_THREADS=4 TOKENIZERS_PARALLELISM=false
 Environment=NCCL_SOCKET_IFNAME=lo GLOO_SOCKET_IFNAME=lo NCCL_IB_DISABLE=1
 Environment=CUDA_VISIBLE_DEVICES=0
