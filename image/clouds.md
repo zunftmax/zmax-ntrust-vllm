@@ -1,5 +1,7 @@
 # Import the same guest into Azure and GCP
 
+**Custom-kernel prerequisite:** the new kernel is not Canonical-signed. These recipes keep Secure Boot enabled. Establish the provider-supported trust/enrollment path and prove the exact custom image boots before treating these commands as a validated deployment. The local ordinary-VM test is not Secure Boot or confidential GPU proof. See [kernel selection and validation](../kernel/README.md).
+
 These are launch recipes for the shared image. They have not been exercised
 against either cloud yet. NVIDIA CC requires both the correct instance and a
 compatible guest/driver; converting a disk format alone does not establish that.
@@ -131,7 +133,7 @@ network configuration. Check subnet as well as NIC NSGs. A successful control-pl
 not guest-encrypted. TLS private keys remain in `/run` inside the guest.
 
 Microsoft documents customized confidential Ubuntu images with the Azure kernel.
-The common image currently attempts Ubuntu's generic kernel with Hyper-V/SNP
+The common image now builds an upstream minimal kernel with Hyper-V/SNP
 support and signed NVIDIA modules. **That combination still needs an actual NCC
 boot.** If it fails, the observed kernel/driver constraint will determine the
 smallest necessary adaptation; do not silently claim the common image works.
@@ -179,7 +181,7 @@ OS Login service. Existing VPC rules remain the deployer's responsibility.
 
 GCP's stock H100 walkthrough uses Ubuntu 22.04; its custom TDX image requirements
 permit kernels >=6.6 with the relevant network/storage drivers. The shared image
-uses Ubuntu 24.04 with signed HWE 7.0 and matching NVIDIA modules. **A custom-image H100 boot is still
+uses Ubuntu 24.04 userspace with custom Linux 7.2.10 and matching NVIDIA 580.178.04 compute modules. **A custom-image H100 boot is still
 required.** A3's Spot/flex-start scheduling limitations apply regardless of image.
 
 ## Validate the first boot

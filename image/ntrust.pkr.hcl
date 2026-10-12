@@ -62,7 +62,7 @@ build {
     inline = ["cloud-init status --wait", "mkdir -p /tmp/ntrust"]
   }
   provisioner "file" {
-    sources     = ["${path.cwd}/guest", "${path.cwd}/image"]
+    sources     = ["${path.cwd}/guest", "${path.cwd}/image", "${path.cwd}/kernel", "${path.cwd}/build/ntrust-kernel.deb", "${path.cwd}/build/ntrust-linux-headers.deb"]
     destination = "/tmp/ntrust/"
   }
   provisioner "shell" {

@@ -58,18 +58,44 @@ done
 set -euo pipefail
 cloud-init status --wait
 uname -r
+test "$(uname -r)" = 7.2.10-ntrust
 systemd-detect-virt
 cvm=$(systemd-detect-virt --cvm || true)
 test "$cvm" = none
 printf 'CPU confidential mode: %s\n' "$cvm"
-test "$(wc -l < /proc/swaps)" -eq 1
-test "$(sysctl -n fs.suid_dumpable)" = 0
-test "$(sysctl -n kernel.core_pattern)" = '|/bin/false'
+test ! -e /proc/swaps
+grep -q '^# CONFIG_SWAP is not set$' "/boot/config-$(uname -r)"
+grep -q '^# CONFIG_COREDUMP is not set$' "/boot/config-$(uname -r)"
+grep -q '^CONFIG_MODULE_SIG_FORCE=y$' "/boot/config-$(uname -r)"
+# Remove only the appended signature from a valid ELF module. Forced signing
+# must reject it even when root requests the load.
+python3 - <<'PYMODULE'
+from pathlib import Path
+import os
+import subprocess
+import tempfile
+module = Path(subprocess.check_output(['modinfo', '-F', 'filename', 'kpp'], text=True).strip())
+data = module.read_bytes()
+magic = b'~Module signature appended~\n'
+assert data.endswith(magic)
+siglen = int.from_bytes(data[-len(magic)-4:-len(magic)], 'big')
+with tempfile.NamedTemporaryFile(dir='/run', suffix='.ko') as unsigned:
+    unsigned.write(data[:-(len(magic) + 12 + siglen)])
+    unsigned.flush()
+    result = subprocess.run(['insmod', unsigned.name], capture_output=True, text=True,
+                            env={**os.environ, 'LC_ALL': 'C'})
+assert result.returncode != 0, 'Unsigned module loaded'
+assert any(s in result.stderr for s in ('Key was rejected', 'Required key not available')), result.stderr
+print('PASS: root cannot load the unsigned copy of a valid crypto module')
+PYMODULE
+modprobe ecdh_generic
+modprobe ecdsa_generic
 test "$(sshd -T | sed -n 's/^permitrootlogin //p')" = no
 test "$(sshd -T | sed -n 's/^passwordauthentication //p')" = no
 systemd-analyze verify /etc/systemd/system/ntrust-*.service
 modinfo -F version nvidia
 modinfo -F signer nvidia
+test -n "$(modinfo -F signer nvidia)"
 nvattest version
 if /usr/local/lib/ntrust/gpu-ready; then
   echo 'ERROR: GPU gate admitted ordinary VM' >&2
@@ -101,7 +127,8 @@ printf 'Kernel configuration for architecture and allocator triage:\n'
 grep -E 'CONFIG_(X86_64|S390|NEED_PER_CPU_KM|NEED_PER_CPU_PAGE_FIRST_CHUNK|NEED_PER_CPU_EMBED_FIRST_CHUNK|MSM_MDP)' "/boot/config-$(uname -r)" || true
 printf 'Root filesystem features:\n'
 tune2fs -l "$(findmnt -n -o SOURCE /)" | sed -n '/Filesystem features:/p'
-for package in walinuxagent ubuntu-pro-client pollinate lxd-installer ubuntu-drivers-common linux-firmware; do
+for package in walinuxagent ubuntu-pro-client pollinate lxd-installer ubuntu-drivers-common linux-firmware \
+    initramfs-tools initramfs-tools-core busybox-initramfs klibc-utils libklibc cpio; do
   test "$(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null || true)" != installed
 done
 /usr/local/bin/ntrust-status
@@ -144,4 +171,5 @@ trap - EXIT
 printf 'PASS: actual inference IP policy permits loopback and denies a reachable non-loopback destination.\n'
 GUEST
 "${guest_ssh[@]}" 'sudo /opt/ntrust/venv/bin/python -' < image/check-engine.py | tee "$qa/engine-parser.log"
+"${guest_ssh[@]}" 'sudo systemd-run --quiet --wait --pipe --collect --property=User=ntrust --property=MemoryMax=96M --property=TasksMax=16 --property=RuntimeDirectory=ntrust-lock-check --property=RuntimeDirectoryMode=0700 /usr/bin/python3 -' < tests/check-file-lock-accounting.py | tee "$qa/file-lock-accounting.log"
 "${guest_ssh[@]}" sudo poweroff || true

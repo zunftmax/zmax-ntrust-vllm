@@ -24,6 +24,8 @@ class GuestGates(unittest.TestCase):
         self.run.mkdir()
         self.swaps = self.base / "swaps"
         self.swaps.write_text("Filename Type Size Used Priority\n")
+        self.kernel_config = self.base / 'kernel.config'
+        self.kernel_config.write_text('# CONFIG_SWAP is not set\n')
         self.env = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}",
                         CALLS=str(self.base / "calls"), CVM="tdx", GPU_COUNT="1",
                         CC_MODE="ON", VERIFY_RC="0", READY_RC="0", QUERY_RC="0",
@@ -61,6 +63,7 @@ esac''')
         text = (ROOT / "guest" / name).read_text()
         text = text.replace("/run/ntrust-gpu", str(self.run))
         text = text.replace("/proc/swaps", str(self.swaps))
+        text = text.replace('/boot/config-$(uname -r)', str(self.kernel_config))
         text = text.replace("/run/ntrust-web", str(self.run))
         text = text.replace("/etc/ntrust/nginx.conf.template", str(ROOT / "guest/nginx.conf.template"))
         text = text.replace("/usr/sbin/nginx", str(self.bin / "nginx"))
@@ -95,6 +98,14 @@ esac''')
         self.swaps.write_text(self.swaps.read_text() + "/swapfile file 1024 0 -2\n")
         self.assertNotEqual(self.run_guest("gpu-ready").returncode, 0)
         self.assertNotIn("verify", self.calls())
+
+    def test_swap_compiled_out_requires_matching_config(self):
+        self.swaps.unlink()
+        self.assertEqual(self.run_guest('gpu-ready').returncode, 0)
+        self.kernel_config.write_text('CONFIG_SWAP=y\n')
+        (self.base / 'calls').write_text('')
+        self.assertNotEqual(self.run_guest('gpu-ready').returncode, 0)
+        self.assertNotIn('verify', self.calls())
 
     def test_verification_precedes_ready_and_key_for_both_cpu_tees(self):
         for cvm in ("tdx", "sev-snp"):

@@ -7,10 +7,15 @@ case "$(systemd-detect-virt --cvm)" in
     sev-snp|tdx) ;;
     *) echo 'An AMD SEV-SNP or Intel TDX VM is required.' >&2; exit 1 ;;
 esac
-test "$(wc -l < /proc/swaps)" -eq 1 || {
-    echo 'Swap must be disabled before accepting inference.' >&2
+if [ -r /proc/swaps ]; then
+    test "$(wc -l < /proc/swaps)" -eq 1 || {
+        echo 'Swap must be disabled before accepting inference.' >&2
+        exit 1
+    }
+elif ! grep -qx '# CONFIG_SWAP is not set' "/boot/config-$(uname -r)"; then
+    echo 'Cannot establish that swap is compiled out.' >&2
     exit 1
-}
+fi
 gpu_uuids=$(nvidia-smi --query-gpu=uuid --format=csv,noheader)
 if [ -z "$gpu_uuids" ] || [ "$(printf '%s\n' "$gpu_uuids" | wc -l)" -ne 1 ]; then
     echo 'Exactly one confidential GPU is required.' >&2

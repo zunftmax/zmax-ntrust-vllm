@@ -1,0 +1,5 @@
+# NVIDIA UVM is external to the kernel tree. Select its core MM dependency
+# without enabling an unrelated in-tree GPU, RDMA, SGX or host-IOMMU driver.
+config NTRUST_NVIDIA_UVM
+	bool "Ntrust external NVIDIA UVM dependency"
+	select MMU_NOTIFIER

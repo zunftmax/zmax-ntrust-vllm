@@ -1,0 +1,2 @@
+# Unified patch context must retain its leading marker and source whitespace.
+kernel/patches/*.patch -whitespace

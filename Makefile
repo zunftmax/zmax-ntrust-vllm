@@ -1,8 +1,11 @@
-.PHONY: image export check check-host sbom scan
+.PHONY: kernel image export check check-host sbom scan
 
 check:
 	python3 -m unittest discover -s tests -v
-	shellcheck guest/gpu-ready guest/https-start guest/inference-ready guest/status image/*.sh tests/*.sh
+	shellcheck guest/gpu-ready guest/https-start guest/inference-ready guest/status image/*.sh tests/*.sh kernel/*.sh
+
+kernel:
+	bash kernel/build.sh
 
 check-host:
 	test "$$(uname -s)" = Linux
@@ -10,9 +13,15 @@ check-host:
 	test -r /dev/kvm -a -w /dev/kvm
 
 # Run on the Linux build machine. Packer and QEMU/KVM are existing build tools.
-image: check-host build/image-key
+image: check-host build/image-key build/ntrust-kernel.deb build/ntrust-linux-headers.deb
 	packer init image/ntrust.pkr.hcl
 	packer build image/ntrust.pkr.hcl
+
+build/ntrust-kernel.deb: kernel/build.sh kernel/required.config kernel/Kconfig kernel/check-config.py $(wildcard kernel/patches/*.patch)
+	bash kernel/build.sh
+
+build/ntrust-linux-headers.deb: build/ntrust-kernel.deb
+	test -f $@ || bash kernel/build.sh
 
 build/image-key:
 	mkdir -p build

@@ -31,12 +31,13 @@ These controls do not yet let a customer authenticate the running image. Certifi
 
 ## Build on Linux
 
-Use an x86-64 Linux host with KVM, Packer 1.16.1, QEMU 8.2.2 or compatible tools, OVMF 4M, xorriso, Python 3, gettext and ShellCheck. Image builds for this project run on `axp.computer` over SSH. Do not emulate the image on macOS.
+Use an x86-64 Linux host with KVM, Packer 1.16.1, QEMU 8.2.2 or compatible tools, OVMF 4M, xorriso, Python 3, gettext and ShellCheck. The [minimal kernel build](kernel/README.md) also needs GCC/G++, make, bc, bison, flex, libssl-dev, libelf-dev, GnuPG and dpkg tools. Image builds for this project run on `axp.computer` over SSH. Do not emulate the image on macOS.
 
 Allow a 64 GiB virtual root disk, ample build cache/export space and 4 GiB builder RAM. Fixed VHD export is 64 GiB plus its footer; sparse files still require an upload plan.
 
 ```sh
 make check
+make kernel
 make image
 make export
 bash tests/smoke-guest.sh
@@ -51,7 +52,7 @@ The [hashed Python dependency lock](image/requirements.lock) contains 200 distri
 
 ## Deploy
 
-Follow the separate [Azure and GCP launch recipes](image/clouds.md). Obtain a supported confidential H100 quota/capacity allocation, a DNS hostname, an operator SSH public key and TCP 443 pass-through. Copy `guest/cloud-init.example.yaml`, replace the public placeholders and use the staging CA first.
+The custom kernel requires a provider-compatible Secure Boot trust path; cloud boot is not yet established. Follow the separate [Azure and GCP launch recipes](image/clouds.md) after resolving that prerequisite; the recipes retain Secure Boot. Obtain a supported confidential H100 quota/capacity allocation, a DNS hostname, an operator SSH public key and TCP 443 pass-through. Copy `guest/cloud-init.example.yaml`, replace the public placeholders and use the staging CA first.
 
 The example provisions Qwen2.5-0.5B-Instruct from an exact revision, verifies every file against [the model manifest](guest/model.json), and installs it as `/var/lib/ntrust/model`. It is a small bring-up model. For another model, provision a local Safetensors model directory with trusted tokenizer/configuration files; remote model code is not enabled. Keep private model provisioning out of public cloud metadata.
 
@@ -76,6 +77,7 @@ Use `sudo ntrust-status` for payload-free local diagnostics. Full HTTPS restarts
 | Path | Purpose |
 | --- | --- |
 | `guest/` | Small startup helpers, upstream server configuration and service isolation |
+| `kernel/` | Linux 7.2.10 feature allowlist, signed headless NVIDIA modules and build recipe |
 | `image/` | Packer recipe, hashed dependencies, disk export and provider launch instructions |
 | `tests/` | Admission/credential tests, ordinary UEFI boot rejection and artifact inspection |
 | `docs/SECURITY-BOM.md` | Versions, selection rationale, expected risk and reduction decisions |

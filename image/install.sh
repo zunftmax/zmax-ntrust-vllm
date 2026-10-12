@@ -5,28 +5,23 @@ export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
 apt-get upgrade -y --no-install-recommends
-# Configure initramfs-tools before NVIDIA's postinst invokes it. The minimal
-# cloud image does not ship its configuration, and apt may otherwise order the
-# two packages in the opposite direction during a kernel-family change.
+# Temporary build dependency for stock Ubuntu/NVIDIA maintainer scripts;
+# removed with the stock kernel before the final image is checked.
 apt-get install -y --no-install-recommends initramfs-tools
-# Signed, precompiled NVIDIA modules avoid DKMS; compilers below serve engine JIT.
+# Kernel/modules are compiled on the Linux builder, never by DKMS in the guest.
+# Pin all NVIDIA userspace and firmware to the open-module source version.
+nvidia_version=580.178.04-0ubuntu0.24.04.1
 apt-get install -y --no-install-recommends \
-  linux-image-virtual-hwe-24.04 linux-modules-nvidia-580-server-open-generic-hwe-24.04 \
-  nvidia-utils-580-server libnvidia-compute-580-server nvidia-compute-utils-580-server \
-  libnvidia-cfg1-580-server nvidia-modprobe \
-  ca-certificates curl openssl gettext-base libgomp1 libssl3t64 libcurl4t64 initramfs-tools \
+  "nvidia-utils-580-server=$nvidia_version" "libnvidia-compute-580-server=$nvidia_version" \
+  "nvidia-compute-utils-580-server=$nvidia_version" "libnvidia-cfg1-580-server=$nvidia_version" \
+  "nvidia-kernel-common-580-server=$nvidia_version" \
+  "nvidia-firmware-580-server-580.178.04=$nvidia_version" nvidia-modprobe \
+  ca-certificates curl openssl gettext-base libgomp1 libssl3t64 libcurl4t64 \
   python3-venv python3-dev gcc g++ libc6-dev ninja-build libnuma1 libibverbs1 \
   cloud-init lsb-release openssh-server systemd-resolved systemd-timesyncd
 
-# GVE moved from modules-extra into the main HWE module package. Check the
-# selected kernel and install extras only if needed, without desktop firmware.
-kernel_image=$(printf '%s\n' /boot/vmlinuz-*-generic | sort -V | tail -n 1)
-test -f "$kernel_image"
-kernel=${kernel_image##*/vmlinuz-}
-if ! modinfo -k "$kernel" gve >/dev/null 2>&1; then
-  apt-get install -y --no-install-recommends "linux-modules-extra-$kernel"
-  apt-mark manual "linux-modules-extra-$kernel"
-fi
+apt-get install -y --no-install-recommends ./ntrust-kernel.deb ./ntrust-linux-headers.deb
+python3 kernel/check-config.py /boot/config-7.2.10-ntrust
 apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   apport snapd walinuxagent ubuntu-pro-client ubuntu-drivers-common \
   ubuntu-release-upgrader-core unattended-upgrades pollinate lxd-agent-loader \
@@ -35,13 +30,17 @@ apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   console-setup console-setup-linux keyboard-configuration kbd \
   xkb-data wget
 # The base's old GA kernel must not remain as a vulnerable boot alternative.
-# This runs only in the disposable builder; the finished guest boots HWE.
+# This runs only in the disposable builder; the finished guest boots Ntrust.
 old_kernels=()
 while read -r status package; do
   if [ "$status" = ii ]; then old_kernels+=("$package"); fi
 done < <(dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' \
-  'linux-image-6.8.*' 'linux-modules-6.8.*' 'linux-modules-extra-6.8.*' 2>/dev/null || true)
+  'linux-image-[0-9]*' 'linux-modules-*' 'linux-main-modules-*' 2>/dev/null || true)
 apt-get purge -y linux-image-virtual linux-virtual "${old_kernels[@]}"
+# Root/cloud drivers are built in, so no initramfs or its parsers are needed.
+apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+  initramfs-tools initramfs-tools-core initramfs-tools-bin busybox-initramfs \
+  klibc-utils libklibc cpio dracut-install
 
 fetch() {
   curl --fail --location --retry 3 --proto '=https' "$1" -o "$3"
@@ -94,12 +93,11 @@ install -m 0755 guest/gpu-ready guest/https-start guest/inference-ready guest/in
 install -m 0755 guest/status /usr/local/bin/ntrust-status
 install -m 0644 guest/nginx.conf.template guest/runtime.env.example guest/model.json /etc/ntrust/
 install -m 0644 guest/systemd/*.service /etc/systemd/system/
-install -m 0644 guest/blocked-modules.conf /etc/modprobe.d/ntrust-blocked.conf
 install -d /etc/systemd/system/systemd-time-wait-sync.service.d
 printf '[Service]\nTimeoutStartSec=90\n' > /etc/systemd/system/systemd-time-wait-sync.service.d/ntrust.conf
 
 # NVIDIA's documented LKCA + UVM persistence setup establishes the SPDM session.
-printf '%s\n' 'install nvidia /sbin/modprobe ecdsa_generic; /sbin/modprobe ecdh; /sbin/modprobe --ignore-install nvidia' > /etc/modprobe.d/nvidia-lkca.conf
+printf '%s\n' 'install nvidia /sbin/modprobe ecdsa_generic && /sbin/modprobe ecdh_generic && /sbin/modprobe --ignore-install nvidia' > /etc/modprobe.d/nvidia-lkca.conf
 install -d /etc/systemd/system/nvidia-persistenced.service.d
 cat > /etc/systemd/system/nvidia-persistenced.service.d/ntrust.conf <<'EOF'
 [Service]
@@ -107,18 +105,14 @@ ExecStartPre=/usr/bin/nvidia-modprobe -u -c 0
 ExecStart=
 ExecStart=/usr/bin/nvidia-persistenced --user nvidia-persistenced --uvm-persistence-mode
 EOF
-# Include each cloud's storage/network drivers in the same initramfs.
-printf '%s\n' nvme virtio_pci virtio_blk virtio_scsi virtio_net hv_vmbus hv_storvsc hv_netvsc gve > /etc/initramfs-tools/modules
-# The minimal cloud base boots without an initrd. Create one for cloud drivers.
-rm -f /etc/default/grub.d/40-force-partuuid.cfg
-for kernel_image in /boot/vmlinuz-*; do
-  kernel=${kernel_image##*/vmlinuz-}
-  if [ -f "/boot/initrd.img-$kernel" ]; then
-    update-initramfs -u -k "$kernel"
-  else
-    update-initramfs -c -k "$kernel"
-  fi
-done
+# The kernel can resolve PARTUUID itself; UUID requires initramfs userspace.
+rm -f /boot/initrd.img-* /initrd.img /initrd.img.old
+cat > /etc/default/grub.d/40-force-partuuid.cfg <<'EOF'
+GRUB_FORCE_PARTUUID=
+GRUB_DISABLE_LINUX_UUID=true
+GRUB_DISABLE_LINUX_PARTUUID=false
+GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX rootwait"
+EOF
 update-grub
 
 # Cloud-init alone provisions both clouds; no extension/telemetry daemon.
@@ -133,7 +127,8 @@ EOF
 install -d /etc/systemd/coredump.conf.d
 printf '[Coredump]\nStorage=none\nProcessSizeMax=0\n' > /etc/systemd/coredump.conf.d/ntrust.conf
 printf '* hard core 0\n* soft core 0\n' > /etc/security/limits.d/ntrust.conf
-printf 'kernel.core_pattern=|/bin/false\nfs.suid_dumpable=0\n' > /etc/sysctl.d/99-ntrust-no-core.conf
+# CONFIG_COREDUMP=n removes the dump implementation and its sysctl interface.
+rm -f /etc/sysctl.d/99-ntrust-no-core.conf
 sed -i '/[[:space:]]swap[[:space:]]/d' /etc/fstab
 swapoff -a
 systemctl mask swap.target

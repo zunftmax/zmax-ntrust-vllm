@@ -17,6 +17,14 @@ for line in unit.splitlines():
 runtime = Path('/run/ntrust-inference')
 runtime.mkdir(mode=0o700, exist_ok=True)
 with tempfile.TemporaryDirectory(dir=runtime) as tmp:
+    # The chosen weight loader must work on the kernel without AIO/io_uring.
+    import torch
+    from safetensors.torch import load_file, save_file
+    tensor = torch.arange(16, dtype=torch.float32)
+    weights = str(Path(tmp, 'probe.safetensors'))
+    save_file({'probe': tensor}, weights)
+    assert torch.equal(load_file(weights)['probe'], tensor)
+    print('PASS: actual CPU Safetensors save/load works; no GPU/model inference claimed')
     # Compile tiny test translation units; never execute a CUDA kernel.
     cuda = Path(tmp, 'probe.cu')
     cuda.write_text('#include <cuda_runtime.h>\n__global__ void probe() {}\n')

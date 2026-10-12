@@ -2,7 +2,7 @@
 
 The project is a core guest implementation awaiting a supported confidential H100 test. Treat source checks, ordinary boot tests, cloud import, real GPU inference and customer verification as separate evidence levels.
 
-Implemented controls: strict local GPU admission; no swap/core/suspend/pstore; signed distribution NVIDIA kernel modules; local-only inference networking; RAM-backed credentials and working caches; TLS termination in the guest; exact public HTTP routes; bounded ingress; payload logging disabled; volatile journal; no cloud extension or telemetry daemon; fresh ACME/TLS state after full HTTPS restart.
+Implemented controls: strict local GPU admission; no swap/core/suspend/pstore; NVIDIA compute modules signed by the custom kernel build key; local-only inference networking; RAM-backed credentials and working caches; TLS termination in the guest; exact public HTTP routes; bounded ingress; payload logging disabled; volatile journal; no cloud extension or telemetry daemon; fresh ACME/TLS state after full HTTPS restart.
 
 Administrative SSH is retained for initial operator setup and per-boot credential retrieval. The operator and that channel remain trusted. Removing the Azure provisioning daemon does not eliminate cloud-init: cloud-init is needed for networking and public first-boot configuration. Its optional telemetry reporter is disabled.
 
@@ -33,8 +33,8 @@ The [2026-10-12 evidence packet](../sbom/2026-10-12/README.md) contains this ima
 | `guest/fetch-model` / `model.json` | Bootstrap only: pinned public revision, size/hash checks on every file and atomic directory promotion; no runtime model downloading |
 | `guest/cloud-init.example.yaml` / `runtime.env.example` | Public deployment inputs only; no private credentials or model tokens |
 | `guest/status` | Fixed service states and a discarded health response; no generic command or log-reader endpoint |
-| `guest/blocked-modules.conf` | Unneeded subsystems blocked while cloud storage/network, NVIDIA and required crypto drivers remain; root can bypass policy |
-| `image/install.sh` | Signed distribution modules, hashed binary wheel closure, background-package pruning and installed configuration checks; compiler retained for upstream JIT |
+| `kernel/required.config` | Unneeded subsystems compiled out; cloud drivers built in, six signed crypto/compute modules packaged |
+| `image/install.sh` | Custom kernel and signed compute modules, hashed binary wheel closure, background-package pruning and installed configuration checks; compiler retained for upstream JIT |
 | `image/check-installed.sh` | Package/module checks, dynamic linkage, native NGINX/ACME configuration, CUDA toolkit and installed engine metadata |
 | `image/check-engine.py` | Build/test only: compile small CUDA/Python-header probes and validate upstream argument parsing; vLLM's device type is mocked for this CPU-only syntax test |
 | `image/finalize.sh` | Removes builder authorizations, host identities, cloud seed/state, saved random seed and logs; scoped cleanup, not forensic disk sealing |
@@ -71,3 +71,5 @@ The ordinary boot checks recorded the running services. GPU persistence is expec
 | AppArmor and filesystem/boot maintenance | Retain distribution policy loading, filesystem checks and maintenance; these are not additional inference daemons |
 
 The removed Azure provisioning daemon, Ubuntu Pro, crash reporters, unattended update tasks, optional hotplug listener, suspend/hibernate and pstore services do not return as dependencies of the new engine.
+
+The replacement [minimal kernel](../kernel/README.md) is Linux 7.2.10, built from an explicit allowlist. Its module signatures are enforced by that kernel; its build key is not a Canonical or provider Secure Boot key. The previous HWE scanner totals are historical, and cannot be carried forward as confirmed vulnerabilities in the new kernel. Review the new upstream component and compiled feature set separately; changing the package name is not a vulnerability fix.

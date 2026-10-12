@@ -2,16 +2,26 @@
 set -euo pipefail
 
 nvattest version
+test "$(dpkg-query -W -f='${Version}' linux-libc-dev)" = '7.2.10-1+ntrust1'
 # persistenced loads this with dlopen, so ordinary ldd checks cannot catch it.
 test -r /usr/lib/x86_64-linux-gnu/libnvidia-cfg.so.1
-for package in walinuxagent ubuntu-pro-client pollinate lxd-installer ubuntu-drivers-common linux-firmware; do
+for package in walinuxagent ubuntu-pro-client pollinate lxd-installer ubuntu-drivers-common linux-firmware \
+    initramfs-tools initramfs-tools-core busybox-initramfs klibc-utils libklibc cpio; do
     test "$(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null || true)" != installed
 done
-for kernel_image in /boot/vmlinuz-*-generic; do
+test -z "$(find /boot -name 'initrd.img-*' -print)"
+grep -q 'root=PARTUUID=' /boot/grub/grub.cfg
+test "$(find /boot -name 'vmlinuz-*' | wc -l)" -eq 1
+for kernel_image in /boot/vmlinuz-*-ntrust; do
+    test -f "$kernel_image"
     kernel=${kernel_image##*/vmlinuz-}
-    for driver in gve nvme hv_vmbus hv_storvsc hv_netvsc ecdsa_generic ecdh nvidia; do
+    test "$(find "/usr/lib/modules/$kernel" -type f -name '*.ko' | wc -l)" -eq 6
+    for driver in gve nvme hv_vmbus hv_storvsc hv_netvsc mlx5_core ecdsa_generic ecdh_generic nvidia nvidia_uvm; do
         modinfo -k "$kernel" "$driver" > /dev/null
     done
+    test -n "$(modinfo -k "$kernel" -F signer nvidia)"
+    test -n "$(modinfo -k "$kernel" -F signer nvidia_uvm)"
+    python3 /tmp/ntrust/kernel/check-config.py "/boot/config-$kernel"
 done
 python3 - <<'PY'
 from cloudinit import reporting

@@ -13,14 +13,15 @@ import sys
 root = Path(sys.argv[1])
 for name in ('root/.ssh/authorized_keys', 'var/lib/systemd/random-seed',
              'var/lib/cloud/instance', 'var/lib/cloud/seed/nocloud',
-             'etc/ntrust/runtime.env', 'var/lib/ntrust/model'):
+             'etc/ntrust/runtime.env', 'var/lib/ntrust/model',
+             'usr/share/doc/ntrust/kernel/signing_key.pem'):
     assert not (root / name).exists(), name
 assert not list((root / 'etc/ssh').glob('ssh_host_*'))
 assert not list((root / 'var/lib/cloud/instances').glob('*'))
 assert (root / 'etc/machine-id').read_text().strip() in ('', 'uninitialized')
 assert (root / 'etc/ssh/sshd_config.d/00-ntrust.conf').read_text() == 'PermitRootLogin no\nPasswordAuthentication no\n'
 key_header = re.compile(rb'-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----')
-for dirname in ('etc', 'root', 'home', 'var/lib', 'tmp', 'var/tmp'):
+for dirname in ('etc', 'root', 'home', 'var/lib', 'tmp', 'var/tmp', 'usr/share/doc/ntrust'):
     for path in (root / dirname).rglob('*'):
         if path.is_symlink() or not path.is_file():
             continue
@@ -29,7 +30,7 @@ for dirname in ('etc', 'root', 'home', 'var/lib', 'tmp', 'var/tmp'):
         if path.stat().st_size <= 10 * 1024 * 1024:
             assert not key_header.search(path.read_bytes()), f'Private key: {path.relative_to(root)}'
 print('PASS: no build SSH authorization, SSH host keys, cloud-init instance/seed, saved random seed, runtime configuration or model.')
-print('PASS: no PEM/OpenSSH private key headers in regular files <=10 MiB under etc, root, home, var/lib, tmp and var/tmp.')
+print('PASS: no PEM/OpenSSH private key headers in regular files <=10 MiB under etc, root, home, var/lib, tmp, var/tmp and usr/share/doc/ntrust.')
 print('PASS: machine ID reset; root/password SSH disabled.')
 PY
 sudo -n cp "$root/usr/share/doc/ntrust/packages.tsv" dist/packages.tsv
