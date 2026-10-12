@@ -34,17 +34,28 @@ for dist in sorted(importlib.metadata.distributions(path=[str(root / 'opt/ntrust
     purl = f'pkg:pypi/{name.lower().replace("_", "-")}@{version}'
     component = {'type': 'library', 'name': name, 'version': version, 'purl': purl, 'bom-ref': purl}
     components.append(component)
-kernel_dir = root / 'usr/share/doc/ntrust/kernel'
 kernel = None
-if kernel_dir.is_dir():
-    version = (kernel_dir / 'upstream-version').read_text().strip()
-    release = version + '-ntrust'
-    kernel_image = root / 'boot' / ('vmlinuz-' + release)
+kernel_packages = [p for p in debian if p['name'] == 'ntrust-kernel']
+if kernel_packages:
+    # Ubuntu Minimal can exclude package documentation during dpkg unpack.
+    # Derive identity from installed payloads, not optional documentation.
+    images = list((root / 'boot').glob('vmlinuz-*-ntrust'))
+    assert len(images) == 1, images
+    kernel_image = images[0]
+    release = kernel_image.name.removeprefix('vmlinuz-')
+    version = release.removesuffix('-ntrust')
+    assert kernel_packages[0]['version'].startswith(version + '-')
     kernel_config = root / 'boot' / ('config-' + release)
+    nvidia_module = root / 'usr/lib/modules' / release / 'updates/nvidia/nvidia.ko'
+    nvidia_version = subprocess.check_output(
+        ['modinfo', '-F', 'version', str(nvidia_module)], text=True).strip()
+    vermagic = subprocess.check_output(
+        ['modinfo', '-F', 'vermagic', str(nvidia_module)], text=True).split()[0]
+    assert vermagic == release, (vermagic, release)
     kernel = {'upstream_version': version, 'release': release,
               'image_sha256': hashlib.sha256(kernel_image.read_bytes()).hexdigest(),
               'config_sha256': hashlib.sha256(kernel_config.read_bytes()).hexdigest(),
-              'nvidia_version': (kernel_dir / 'nvidia-version').read_text().strip()}
+              'nvidia_version': nvidia_version}
     components.append({'type': 'operating-system', 'name': 'linux', 'version': version,
         'purl': f'pkg:generic/linux@{version}', 'bom-ref': f'pkg:generic/linux@{version}',
         'hashes': [{'alg': 'SHA-256', 'content': kernel['image_sha256']}],
