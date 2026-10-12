@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+export LC_ALL=C
+export NTRUST_ACME_DIRECTORY="${NTRUST_ACME_DIRECTORY:-https://acme-v02.api.letsencrypt.org/directory}"
+
+# These three public values become NGINX syntax. Accept only a single DNS name,
+# a simple contact address and one of the two Let's Encrypt directories.
+case "${NTRUST_DOMAIN:-}" in ''|*[!a-z0-9.-]*) exit 1 ;; esac
+printf '%s\n' "$NTRUST_DOMAIN" | grep -Eq '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$'
+test "${#NTRUST_DOMAIN}" -le 253
+case "${NTRUST_EMAIL:-}" in ''|*[!a-zA-Z0-9_.+@-]*) exit 1 ;; esac
+printf '%s\n' "$NTRUST_EMAIL" | grep -Eq '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+case "$NTRUST_ACME_DIRECTORY" in
+    https://acme-v02.api.letsencrypt.org/directory|https://acme-staging-v02.api.letsencrypt.org/directory) ;;
+    *) echo 'Unsupported ACME directory' >&2; exit 1 ;;
+esac
+
+umask 077
+# Explicit variable list preserves NGINX's own $acme_* and $request_method.
+# shellcheck disable=SC2016
+envsubst '${NTRUST_DOMAIN} ${NTRUST_EMAIL} ${NTRUST_ACME_DIRECTORY}' \
+    < /etc/ntrust/nginx.conf.template > /run/ntrust-web/nginx.conf
+exec /usr/sbin/nginx -e /dev/null -p /run/ntrust-web/ -c /run/ntrust-web/nginx.conf "$@"

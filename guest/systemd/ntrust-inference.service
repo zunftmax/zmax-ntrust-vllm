@@ -1,0 +1,69 @@
+[Unit]
+Description=Local NVIDIA GPU inference
+BindsTo=ntrust-gpu.service
+After=ntrust-gpu.service
+ConditionPathExists=/etc/ntrust/runtime.env
+ConditionPathExists=/var/lib/ntrust/model/config.json
+
+[Service]
+User=ntrust
+Group=ntrust
+SupplementaryGroups=video render
+EnvironmentFile=/etc/ntrust/runtime.env
+Environment=PATH=/opt/ntrust/venv/bin:/usr/local/cuda/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=CUDA_HOME=/usr/local/cuda
+Environment=HOME=/run/ntrust-inference
+Environment=XDG_CACHE_HOME=/run/ntrust-inference/cache
+Environment=HF_HOME=/run/ntrust-inference/huggingface
+Environment=TORCH_HOME=/run/ntrust-inference/torch
+Environment=TORCHINDUCTOR_CACHE_DIR=/run/ntrust-inference/inductor
+Environment=TRITON_CACHE_DIR=/run/ntrust-inference/triton
+Environment=FLASHINFER_WORKSPACE_BASE=/run/ntrust-inference/flashinfer
+Environment=SGLANG_JIT_CACHE_DIR=/run/ntrust-inference/sglang-jit
+Environment=HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1
+Environment=DO_NOT_TRACK=1 OTEL_SDK_DISABLED=true PYTHONDONTWRITEBYTECODE=1
+Environment=VLLM_NO_USAGE_STATS=1 VLLM_DO_NOT_TRACK=1 VLLM_LOGGING_LEVEL=ERROR
+Environment=VLLM_HOST_IP=127.0.0.1 VLLM_CACHE_ROOT=/run/ntrust-inference/vllm
+Environment=VLLM_PLUGINS= SGLANG_DISABLE_OUTLINES_DISK_CACHE=1
+Environment=OMP_NUM_THREADS=4 TOKENIZERS_PARALLELISM=false
+Environment=NCCL_SOCKET_IFNAME=lo GLOO_SOCKET_IFNAME=lo NCCL_IB_DISABLE=1
+Environment=CUDA_VISIBLE_DEVICES=0
+Environment=CUDA_CACHE_PATH=/run/ntrust-inference/cuda
+Environment=TMPDIR=/run/ntrust-inference
+RuntimeDirectory=ntrust-inference
+RuntimeDirectoryMode=0700
+LoadCredential=api-key:/run/ntrust-gpu/api-key
+ExecStart=/usr/local/lib/ntrust/inference-start
+ExecStartPost=/usr/local/lib/ntrust/inference-ready
+TimeoutStartSec=900
+Restart=on-failure
+RestartSec=5
+LimitCORE=0
+LimitMEMLOCK=infinity
+MemorySwapMax=0
+MemoryHigh=75%
+MemoryMax=80%
+TasksMax=512
+CapabilityBoundingSet=
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallFilter=~@mount @module @raw-io @reboot @swap @debug @obsolete bpf keyctl add_key request_key
+SystemCallErrorNumber=EPERM
+ProtectSystem=strict
+ProtectHome=yes
+TemporaryFileSystem=/tmp:rw,nosuid,nodev,noexec,mode=1777 /var/tmp:rw,nosuid,nodev,noexec,mode=1777
+PrivateMounts=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressDeny=any
+IPAddressAllow=localhost
+UMask=0077
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+# Deliberately print only fixed stage names and systemd state, never app logs.
+for service in systemd-time-wait-sync nvidia-persistenced ntrust-gpu ntrust-inference ntrust-https; do
+    printf '%s: ' "$service"
+    systemctl show --property=ActiveState --value "$service.service"
+done
+if curl --noproxy '*' --fail --silent --max-time 2 --output /dev/null http://127.0.0.1:8080/health; then
+    echo 'model: ready'
+else
+    echo 'model: unavailable'
+fi

@@ -1,0 +1,43 @@
+#!/usr/bin/python3
+"""Provision only the pinned public demonstration model, before serving."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import tempfile
+import urllib.request
+
+
+def main():
+    target = Path('/var/lib/ntrust/model')
+    if target.exists():
+        raise SystemExit('Model already exists; remove or replace it explicitly')
+    manifest = json.loads(Path('/etc/ntrust/model.json').read_text())
+    stage = Path(tempfile.mkdtemp(prefix='.model-', dir=target.parent))
+    try:
+        for item in manifest['files']:
+            name = item['name']
+            if Path(name).name != name or name in ('.', '..'):
+                raise SystemExit('Invalid model filename')
+            url = f"https://huggingface.co/{manifest['repository']}/resolve/{manifest['revision']}/{name}"
+            digest = hashlib.sha256()
+            size = 0
+            with urllib.request.urlopen(url, timeout=60) as response, (stage / name).open('xb') as output:
+                while data := response.read(1024 * 1024):
+                    size += len(data)
+                    if size > item['bytes']:
+                        raise SystemExit('Model file exceeds pinned size')
+                    digest.update(data)
+                    output.write(data)
+            if size != item['bytes'] or digest.hexdigest() != item['sha256']:
+                raise SystemExit('Model file checksum mismatch')
+            (stage / name).chmod(0o644)
+        stage.chmod(0o755)
+        stage.rename(target)
+    finally:
+        if stage.exists():
+            shutil.rmtree(stage)
+
+
+if __name__ == '__main__':
+    main()

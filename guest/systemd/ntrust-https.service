@@ -1,0 +1,47 @@
+[Unit]
+Description=HTTPS inference proxy with in-guest ACME
+BindsTo=ntrust-gpu.service
+Requires=systemd-resolved.service ntrust-inference.service
+Wants=network-online.target
+After=network-online.target systemd-resolved.service ntrust-gpu.service ntrust-inference.service
+ConditionPathExists=/etc/ntrust/runtime.env
+
+[Service]
+Type=simple
+User=ntrust-web
+Group=ntrust-web
+EnvironmentFile=/etc/ntrust/runtime.env
+RuntimeDirectory=ntrust-web
+RuntimeDirectoryMode=0700
+ExecStart=/usr/local/lib/ntrust/https-start
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGQUIT
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallFilter=~@mount @module @raw-io @reboot @swap @debug @obsolete bpf keyctl add_key request_key
+SystemCallErrorNumber=EPERM
+ProtectSystem=strict
+ProtectHome=yes
+TemporaryFileSystem=/tmp:rw,nosuid,nodev,noexec,mode=1777 /var/tmp:rw,nosuid,nodev,noexec,mode=1777
+PrivateDevices=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+LimitCORE=0
+MemorySwapMax=0
+MemoryMax=256M
+TasksMax=64
+UMask=0077
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

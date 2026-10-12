@@ -1,0 +1,2 @@
+vllm==0.31.0
+cuda-toolkit[nvcc]==13.0.3

@@ -1,0 +1,25 @@
+[Unit]
+Description=Verify and enable the NVIDIA confidential GPU data path
+BindsTo=nvidia-persistenced.service
+Requires=systemd-time-wait-sync.service
+Wants=network-online.target time-sync.target
+After=network-online.target time-sync.target systemd-time-wait-sync.service nvidia-persistenced.service
+Before=ntrust-inference.service
+
+[Service]
+Type=oneshot
+RuntimeDirectory=ntrust-gpu
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+WorkingDirectory=/run/ntrust-gpu
+Environment=HOME=/run/ntrust-gpu
+Environment=TMPDIR=/run/ntrust-gpu
+ExecStart=/usr/local/lib/ntrust/gpu-ready
+RemainAfterExit=yes
+TimeoutStartSec=180
+LimitCORE=0
+UMask=0077
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+TemporaryFileSystem=/tmp:rw,nosuid,nodev,noexec,mode=1777 /var/tmp:rw,nosuid,nodev,noexec,mode=1777

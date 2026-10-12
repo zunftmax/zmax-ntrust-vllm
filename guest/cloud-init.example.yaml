@@ -1,0 +1,23 @@
+#cloud-config
+# PUBLIC metadata only. Never place private model tokens, keys or prompts here.
+users:
+  - name: operator
+    primary_group: users
+    groups: [adm, sudo]
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - REPLACE_WITH_YOUR_SSH_PUBLIC_KEY
+ssh_pwauth: false
+disable_root: true
+write_files:
+  - path: /etc/ntrust/runtime.env
+    owner: root:root
+    permissions: '0644'
+    content: |
+      NTRUST_DOMAIN=inference.example.com
+      NTRUST_EMAIL=admin@example.com
+      NTRUST_ACME_DIRECTORY=https://acme-staging-v02.api.letsencrypt.org/directory
+runcmd:
+  - /usr/local/lib/ntrust/fetch-model
+  - [systemctl, start, ntrust-inference.service, ntrust-https.service]
