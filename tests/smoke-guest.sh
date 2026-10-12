@@ -60,11 +60,21 @@ done
 set -euo pipefail
 cloud-init status --wait
 python3 - <<'PYRESIZE'
-import os
-v = os.statvfs('/')
-size = v.f_blocks * v.f_frsize
-assert size > 63.5 * 1024**3, f'Root filesystem did not grow with the 65 GiB test disk: {size}'
-print(f'PASS: first-boot root filesystem expansion: {size} bytes')
+from pathlib import Path
+import re
+import subprocess
+major_minor = subprocess.check_output(['findmnt', '-n', '-o', 'MAJ:MIN', '/'], text=True).strip()
+partition = Path('/sys/dev/block', major_minor).resolve()
+start = int((partition / 'start').read_text()) * 512
+size = int((partition / 'size').read_text()) * 512
+disk_size = int((partition.parent / 'size').read_text()) * 512
+assert disk_size == 65 * 1024**3, disk_size
+assert disk_size - start - size < 1024**2, (start, size, disk_size)
+superblock = subprocess.check_output(['tune2fs', '-l', '/dev/' + partition.name], text=True)
+blocks = int(re.search(r'^Block count:\s+(\d+)$', superblock, re.M).group(1))
+block_size = int(re.search(r'^Block size:\s+(\d+)$', superblock, re.M).group(1))
+assert 0 <= size - blocks * block_size < 1024**2, (size, blocks * block_size)
+print(f'PASS: first-boot partition and filesystem expansion: {size} / {blocks * block_size} bytes')
 PYRESIZE
 uname -r
 test "$(uname -r)" = 7.2.10-ntrust
@@ -88,10 +98,10 @@ data = module.read_bytes()
 magic = b'~Module signature appended~\n'
 assert data.endswith(magic)
 siglen = int.from_bytes(data[-len(magic)-4:-len(magic)], 'big')
-with tempfile.NamedTemporaryFile(dir='/run', suffix='.ko') as unsigned:
-    unsigned.write(data[:-(len(magic) + 12 + siglen)])
-    unsigned.flush()
-    result = subprocess.run(['insmod', unsigned.name], capture_output=True, text=True,
+with tempfile.TemporaryDirectory(dir='/run') as directory:
+    unsigned = Path(directory, 'unsigned.ko')
+    unsigned.write_bytes(data[:-(len(magic) + 12 + siglen)])
+    result = subprocess.run(['insmod', str(unsigned)], capture_output=True, text=True,
                             env={**os.environ, 'LC_ALL': 'C'})
 assert result.returncode != 0, 'Unsigned module loaded'
 assert any(s in result.stderr for s in ('Key was rejected', 'Required key not available')), result.stderr
