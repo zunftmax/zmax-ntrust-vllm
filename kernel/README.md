@@ -11,7 +11,7 @@ rejects dropped requirements and forbidden features after resolution.
 | Confidential CPU memory | AMD memory encryption/SNP and Intel TDX guest support | Required guest mechanisms; does not establish provider firmware patch status or customer attestation |
 | Provider identification | DMI identification, PCI and Hyper-V PCI frontend | Cloud-init datasource selection and assigned cloud hardware |
 | Root and provisioning media | ext4, GPT, FAT EFI partition, ISO9660/Joliet cidata | Matches the existing Ubuntu Minimal/Packer disk layout; other filesystems are excluded |
-| Storage | NVMe, Hyper-V SCSI, Virtio block/SCSI | Built in so the kernel can mount the root by PARTUUID without initramfs |
+| Storage | NVMe, Hyper-V SCSI, Virtio block/SCSI; mounted-device writes for privileged maintenance | Built in for root-by-PARTUUID boot without initramfs. Ubuntu's resize2fs requires mounted-device writes for first-boot disk growth; inference has no block-device access |
 | Networking | IPv4 TCP/UDP, Unix sockets, packet/netlink APIs, GVE, Hyper-V/netvsc, Virtio, Mellanox Ethernet VF | HTTPS, DNS, DHCP, SSH and cloud network devices; no RDMA, IPv6, network filesystems, tunnel or firewall stacks |
 | GPU compute | NVIDIA `nvidia` and `nvidia-uvm` only, firmware loading, MMU notifiers, native PAT/MTRR and dynamic SWIOTLB | Headless CUDA inference and GPU memory/DMA mapping; no NVIDIA modeset, DRM, peermem or vGPU host module |
 | NVIDIA encryption | Linux AES-GCM/AES-NI, SHA-256/384/512, HMAC, RSA, ECDH, ECDSA and X.509 support | Required by NVIDIA's LKCA/libspdm implementation; build checks reject silently compiled crypto error stubs |

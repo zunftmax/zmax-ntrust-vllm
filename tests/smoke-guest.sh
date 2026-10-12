@@ -5,6 +5,8 @@ qa=${NTRUST_QA_DIR:-build/boot-check}
 mkdir -p "$qa"
 test ! -e "$qa/root.qcow2"
 qemu-img create -f qcow2 -F qcow2 -b "${NTRUST_QA_IMAGE:-$PWD/dist/qemu/ntrust.qcow2}" "$qa/root.qcow2"
+# Exercise real first-boot partition/filesystem growth on this disposable overlay.
+qemu-img resize "$qa/root.qcow2" 65G
 cp /usr/share/OVMF/OVMF_VARS_4M.fd "$qa/OVMF_VARS.fd"
 python3 - "$qa" <<'PY'
 from pathlib import Path
@@ -45,7 +47,7 @@ qemu-system-x86_64 -name ntrust-boot-check -enable-kvm -machine q35 -cpu host -s
   -drive if=none,id=root,format=qcow2,file="$qa/root.qcow2",discard=unmap \
   -device scsi-hd,drive=root,bus=scsi0.0 \
   -drive if=virtio,format=raw,readonly=on,file="$qa/seed.iso" \
-  -netdev user,id=net0,hostfwd=tcp:127.0.0.1:"$port"-:22 -device virtio-net-pci,netdev=net0 \
+  -netdev user,id=net0,hostfwd=tcp:127.0.0.1:"$port"-:22 -device virtio-net-pci,netdev=net0,mac=52:54:00:12:34:56 \
   -display none -serial file:"$qa/serial.log" -daemonize -pidfile "$qa/qemu.pid"
 trap 'test ! -f "$qa/qemu.pid" || kill "$(cat "$qa/qemu.pid")" 2>/dev/null || true' EXIT
 guest_ssh=(ssh -o BatchMode=yes -o ConnectTimeout=2 -o StrictHostKeyChecking=accept-new \
@@ -57,6 +59,13 @@ done
 "${guest_ssh[@]}" 'sudo bash -s' <<'GUEST' | tee "$qa/results.log"
 set -euo pipefail
 cloud-init status --wait
+python3 - <<'PYRESIZE'
+import os
+v = os.statvfs('/')
+size = v.f_blocks * v.f_frsize
+assert size > 63.5 * 1024**3, f'Root filesystem did not grow with the 65 GiB test disk: {size}'
+print(f'PASS: first-boot root filesystem expansion: {size} bytes')
+PYRESIZE
 uname -r
 test "$(uname -r)" = 7.2.10-ntrust
 systemd-detect-virt
@@ -172,4 +181,20 @@ printf 'PASS: actual inference IP policy permits loopback and denies a reachable
 GUEST
 "${guest_ssh[@]}" 'sudo /opt/ntrust/venv/bin/python -' < image/check-engine.py | tee "$qa/engine-parser.log"
 "${guest_ssh[@]}" 'sudo systemd-run --quiet --wait --pipe --collect --property=User=ntrust --property=MemoryMax=96M --property=TasksMax=16 --property=RuntimeDirectory=ntrust-lock-check --property=RuntimeDirectoryMode=0700 /usr/bin/python3 -' < tests/check-file-lock-accounting.py | tee "$qa/file-lock-accounting.log"
+previous_boot=$("${guest_ssh[@]}" cat /proc/sys/kernel/random/boot_id)
+"${guest_ssh[@]}" sudo reboot || true
+for _attempt in $(seq 1 90); do
+  current_boot=$("${guest_ssh[@]}" cat /proc/sys/kernel/random/boot_id 2>/dev/null || true)
+  if [ -n "$current_boot" ] && [ "$current_boot" != "$previous_boot" ]; then break; fi
+  sleep 2
+done
+test -n "$current_boot" && test "$current_boot" != "$previous_boot"
+"${guest_ssh[@]}" 'sudo bash -s' <<'REBOOT' | tee "$qa/reboot.log"
+set -euo pipefail
+cloud-init status --wait
+test "$(uname -r)" = 7.2.10-ntrust
+test ! -e /run/ntrust-gpu/api-key
+test -z "$(ss -H -ltn 'sport = :443 or sport = :8080')"
+printf 'PASS: the same VM reboots, provisions networking and continues to reject ordinary-VM inference.\n'
+REBOOT
 "${guest_ssh[@]}" sudo poweroff || true
