@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      uq_release_record:
+        description: 'Independently approved exact uq release JSON; no automatic version selection'
+        required: false
+        type: string
       build_full_image:
         description: 'Build full kernel + VM disk image on GitHub-hosted KVM runner'
         required: false
@@ -54,6 +58,19 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Require approved Rust attestation dependency before image work
+        env:
+          UQ_RELEASE_RECORD: ${{ inputs.uq_release_record || vars.NTRUST_UQ_RELEASE_JSON }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -n "$UQ_RELEASE_RECORD" || { echo 'Approved uq release pins are required; hardware acceptance must precede release approval.' >&2; exit 1; }
+          mkdir -p build
+          printf '%s\n' "$UQ_RELEASE_RECORD" > build/uq-approved-release.json
+          python3 image/uq-release.py build/uq-approved-release.json
+          export NTRUST_UQ_RELEASE_CONFIG="$GITHUB_WORKSPACE/build/uq-approved-release.json"
+          bash image/fetch-uq.sh
+          printf 'NTRUST_UQ_RELEASE_CONFIG=%s\n' "$NTRUST_UQ_RELEASE_CONFIG" >> "$GITHUB_ENV"
+
       - name: Reclaim GitHub-hosted runner disk space for 64 GiB image export
         run: |
           df -h /
@@ -93,6 +110,8 @@ jobs:
           NTRUST_BUILD_JOBS=$(nproc) make kernel
 
       - name: Build guest image with Packer and QEMU/KVM
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           make image
 

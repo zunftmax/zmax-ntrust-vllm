@@ -2,6 +2,8 @@
 set -euo pipefail
 cd /tmp/ntrust
 export DEBIAN_FRONTEND=noninteractive
+# Fail before image mutation if independently approved Rust release pins are absent.
+python3 image/uq-release.py uq/release.json uq/uq >/dev/null
 
 apt-get update
 apt-get upgrade -y --no-install-recommends
@@ -91,6 +93,8 @@ getent group render >/dev/null || groupadd --system render
 install -d -m 0755 /usr/local/lib/ntrust /etc/ntrust /var/lib/ntrust
 install -m 0755 guest/gpu-ready guest/https-start guest/inference-ready guest/inference-start guest/fetch-model guest/attest-server /usr/local/lib/ntrust/
 install -m 0755 guest/status /usr/local/bin/ntrust-status
+install -m 0755 uq/uq /usr/local/bin/uq
+install -m 0644 uq/release.json /usr/share/doc/ntrust/uq-release.json
 install -m 0644 guest/nginx.conf.template guest/runtime.env.example guest/model.json /etc/ntrust/
 install -m 0644 guest/systemd/*.service /etc/systemd/system/
 install -d /etc/systemd/system/systemd-time-wait-sync.service.d
@@ -171,13 +175,15 @@ EOF
 install -d /etc/systemd/journald.conf.d
 printf '[Journal]\nStorage=volatile\nRuntimeMaxUse=32M\nForwardToSyslog=no\n' > /etc/systemd/journald.conf.d/ntrust.conf
 systemctl enable systemd-resolved.service systemd-timesyncd.service
-systemctl enable ntrust-attest.service ntrust-inference.service ntrust-https.service
+# Activation requires hardware acceptance; the attestation service stays disabled.
+systemctl disable ntrust-attest.service
+systemctl enable ntrust-inference.service ntrust-https.service
 
 # Exercise installed CPU-side binaries/configuration during the Linux build.
 # This deliberately does not bypass the GPU gate or claim GPU execution.
 bash image/check-installed.sh
 
-# Record the canonical unified-quote Value X (48-byte SHA-384) disk tree measurement
+# Record the complete required Ntrust application-file closure (48-byte SHA-384)
 # and the actual package tuple.
 python3 - <<'PY' > /usr/share/doc/ntrust/value_x.sha384
 import importlib.machinery, importlib.util

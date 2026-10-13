@@ -8,9 +8,17 @@ trap 'sudo -n umount "$root" 2>/dev/null || true; sudo -n losetup -d "$loop"' EX
 sudo -n mount -o ro,noload "${loop}p1" "$root"
 sudo -n python3 - "$root" <<'PY'
 from pathlib import Path
+import hashlib
+import json
 import re
 import sys
 root = Path(sys.argv[1])
+uq_record = json.loads((root / 'usr/share/doc/ntrust/uq-release.json').read_text())
+uq = root / 'usr/local/bin/uq'
+assert uq.is_file() and not uq.is_symlink()
+with uq.open('rb') as stream:
+    assert hashlib.file_digest(stream, 'sha256').hexdigest() == uq_record['binary_sha256']
+assert not (root / 'etc/systemd/system/multi-user.target.wants/ntrust-attest.service').exists(), 'Attestation must await hardware acceptance'
 for name in ('root/.ssh/authorized_keys', 'var/lib/systemd/random-seed',
              'var/lib/cloud/instance', 'var/lib/cloud/seed/nocloud',
              'etc/ntrust/runtime.env', 'var/lib/ntrust/model',

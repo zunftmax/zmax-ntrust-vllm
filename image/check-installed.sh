@@ -2,6 +2,9 @@
 set -euo pipefail
 
 nvattest version
+python3 /tmp/ntrust/image/uq-release.py /usr/share/doc/ntrust/uq-release.json /usr/local/bin/uq >/dev/null
+# Capability observation only; never quotes or enables hardware.
+/usr/local/bin/uq status --json >/dev/null
 test "$(dpkg-query -W -f='${Version}' linux-libc-dev)" = '7.2.10-1+ntrust1'
 # persistenced loads this with dlopen, so ordinary ldd checks cannot catch it.
 test -r /usr/lib/x86_64-linux-gnu/libnvidia-cfg.so.1
@@ -30,7 +33,7 @@ assert 'telemetry' not in reporting.instantiated_handler_registry.registered_ite
 PY
 systemd-analyze verify /etc/systemd/system/ntrust-*.service
 for binary in /usr/sbin/nginx /usr/lib/nginx/modules/ngx_http_acme_module.so \
-    /usr/bin/nvattest; do
+    /usr/bin/nvattest /usr/local/bin/uq; do
     deps=$(ldd "$binary")
     if [[ "$deps" == *'not found'* ]]; then
         printf '%s\n%s\n' "$binary" "$deps" >&2

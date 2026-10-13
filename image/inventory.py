@@ -67,9 +67,18 @@ if kernel_packages:
         'purl': f'pkg:github/NVIDIA/open-gpu-kernel-modules@{nv}',
         'bom-ref': f'pkg:github/NVIDIA/open-gpu-kernel-modules@{nv}',
         'externalReferences': [{'type': 'vcs', 'url': f'https://github.com/NVIDIA/open-gpu-kernel-modules/tree/{nv}'}]})
+uq_release = json.loads((root / 'usr/share/doc/ntrust/uq-release.json').read_text())
+with (root / 'usr/local/bin/uq').open('rb') as stream:
+    uq_digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+assert uq_digest == uq_release['binary_sha256'], 'Installed uq differs from its approved release pin'
+components.append({'type': 'application', 'name': 'unified-quote', 'version': uq_release['release_tag'],
+    'bom-ref': 'pkg:github/ZUNFTMAX/zmax-universal-attestations@' + uq_release['source_sha'],
+    'hashes': [{'alg': 'SHA-256', 'content': uq_digest}],
+    'properties': [{'name': 'ntrust:uq-source-sha', 'value': uq_release['source_sha']}],
+    'externalReferences': [{'type': 'vcs', 'url': 'https://github.com/ZUNFTMAX/zmax-universal-attestations/tree/' + uq_release['source_sha']}]})
 native = []
 print(f'Installed: {len(debian)} Debian packages and {len(python)} Python distributions; enumerating native-file candidates', flush=True)
-paths = [root / p for p in ['usr/sbin/nginx', 'usr/bin/nvattest', 'usr/lib/nginx/modules/ngx_http_acme_module.so']]
+paths = [root / p for p in ['usr/sbin/nginx', 'usr/local/bin/uq', 'usr/bin/nvattest', 'usr/lib/nginx/modules/ngx_http_acme_module.so']]
 paths += list((root / 'opt/ntrust/venv').rglob('*'))
 paths += list((root / 'usr/lib/modules').rglob('*.ko'))
 print(f'Inspecting {len(paths)} paths for ELF headers', flush=True)
@@ -99,7 +108,7 @@ with ThreadPoolExecutor(max_workers=4) as pool:
             if index % 2500 == 0:
                 print(f'Examining path {index}/{len(paths)}; {len(native)} ELF files inventoried', flush=True)
 
-inventory = {'generated': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'debian': debian, 'python': python, 'kernel': kernel, 'native_files': native, 'native_scope': 'ELF files in the inference venv, kernel modules, NGINX, its ACME module and nvattest; other Debian package contents are identified at package level'}
+inventory = {'generated': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'debian': debian, 'python': python, 'kernel': kernel, 'uq_release': uq_release, 'native_files': native, 'native_scope': 'ELF files in the inference venv, kernel modules, NGINX, its ACME module nvattest and the pinned Rust uq; other Debian package contents are identified at package level'}
 (out / 'inventory.json').write_text(json.dumps(inventory, indent=2) + '\n')
 bom = {'bomFormat': 'CycloneDX', 'specVersion': '1.6', 'version': 1, 'metadata': {'timestamp': inventory['generated']}, 'components': components}
 (out / 'sbom.cdx.json').write_text(json.dumps(bom, indent=2) + '\n')

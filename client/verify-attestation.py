@@ -1,59 +1,32 @@
 #!/usr/bin/env python3
-"""Customer verifier for ntrust unified-quote (https://uq.secure.build/eat/v2) attestation.
+"""TLS transport for mandatory Rust uq composite verification.
 
-Connects over TLS 1.3, extracts the live server certificate's SubjectPublicKeyInfo
-(SPKI) directly from the TLS socket, sends a fresh 32-byte nonce to GET /v1/attest,
-and verifies:
-  1. EatToken::binding_bytes_v2() in hardware report_data[0..32]
-  2. EatToken::second_commitment(sha256(gpu || tpm_pcrs)) in report_data[32..64]
-  3. Value X (48-byte SHA-384 deterministic disk image tree measurement)
-  4. AMD SEV-SNP (VMPL 0, DEBUG=0, vTPM PCRs) and Intel TDX (MRTD + RTMR 0..3, DEBUG=0)
-  5. NVIDIA GPU SPDM attestation readiness
+The only appraisal implementation is the installed Rust verifier. Expected image
+measurements and GPU inventory policy come from the customer, never the receipt.
+CPU-only relay verification authenticates the relay and does not attest its origin.
 """
 import argparse
-import base64
-import hashlib
 import http.client
 import json
+import os
+from pathlib import Path
 import re
 import secrets
 import socket
 import ssl
-import struct
+import subprocess
 import sys
+import tempfile
+import time
 from urllib.parse import urlparse
 
-EAT_VERSION = 2
-EAT_PROFILE = "https://uq.secure.build/eat/v2"
-SECOND_COMMITMENT_DOMAIN = b"uq/eat/report-data-2\0"
-NONCE_RE = re.compile(r"^[0-9a-f]{64}$")
-SHA384_RE = re.compile(r"^[0-9a-f]{96}$")
-
-# AMD SEV-SNP attestation_report offsets (ABI Specification rev 1.55, Table 22)
-SNP_MIN_REPORT_LEN = 1184
-SNP_OFFSET_VERSION = 0x00
-SNP_OFFSET_POLICY = 0x08
-SNP_POLICY_DEBUG_BIT = 1 << 19
-SNP_OFFSET_VMPL = 0x30
-SNP_OFFSET_REPORT_DATA = 0x50
-SNP_OFFSET_MEASUREMENT = 0x90
-HCL_MAGIC = 0x414C4348
-HCL_SNP_OFFSET = 0x20
-
-# Intel TDX Quote v4 offsets (Header 48B + TD Quote Body 584B)
-TDX_MIN_QUOTE_LEN = 632
-TDX_TEE_TYPE = 0x00000081
-TDX_OFFSET_ATTRIBUTES = 0x30 + 0x70   # 0xA0
-TDX_ATTR_DEBUG_BIT = 1 << 0
-TDX_OFFSET_MRTD = 0x30 + 0x88         # 0xB8 (48B)
-TDX_OFFSET_RTMR0 = 0x30 + 0x118       # 0x148 (48B)
-TDX_OFFSET_RTMR1 = 0x30 + 0x148       # 0x178 (48B)
-TDX_OFFSET_RTMR2 = 0x30 + 0x178       # 0x1A8 (48B)
-TDX_OFFSET_RTMR3 = 0x30 + 0x1A8       # 0x1D8 (48B)
-TDX_OFFSET_REPORT_DATA = 0x30 + 0x208  # 0x238 (64B)
-
+MAX_EVIDENCE_BYTES = 64 * 1024 * 1024
+MAX_VERDICT_BYTES = 1024 * 1024
+MAX_UKI_BYTES = 512 * 1024 * 1024
+VERIFICATION_TIMEOUT = 240
 
 def _read_asn1_tlv(data: bytes, offset: int) -> tuple[int, int, int, int]:
+    """Return (tag, value_start, value_end, next_offset) for a DER TLV."""
     if offset >= len(data):
         raise ValueError("Truncated ASN.1 DER tag")
     tag = data[offset]
@@ -77,7 +50,7 @@ def _read_asn1_tlv(data: bytes, offset: int) -> tuple[int, int, int, int]:
 
 
 def extract_spki_der(cert_der: bytes) -> bytes:
-    """Extract the DER-encoded SubjectPublicKeyInfo TLV from an X.509 cert."""
+    """Extract the exact DER-encoded SubjectPublicKeyInfo TLV from an X.509 cert."""
     tag, cert_start, _, _ = _read_asn1_tlv(cert_der, 0)
     if tag != 0x30:
         raise ValueError("X.509 Certificate must start with SEQUENCE")
@@ -96,314 +69,188 @@ def extract_spki_der(cert_der: bytes) -> bytes:
     return cert_der[pos:spki_end]
 
 
-def compute_expected_report_data(
-    *,
-    value_x: bytes,
-    platform: int,
-    tls_spki_hash: bytes,
-    source_hash: bytes,
-    artifact_hash: bytes,
-    iat: int,
-    eat_nonce: bytes,
-    gpu_evidence_sha256: str,
-    pcr_composite_sha256: str,
-) -> bytes:
-    """Recompute unified-quote 64-byte report_data (binding_bytes_v2 || second_commitment)."""
-    h1 = hashlib.sha256()
-    h1.update(struct.pack(">I", EAT_VERSION))
-    profile_bytes = EAT_PROFILE.encode("ascii")
-    h1.update(struct.pack(">I", len(profile_bytes)))
-    h1.update(profile_bytes)
-    h1.update(value_x)
-    h1.update(bytes([platform]))
-    h1.update(tls_spki_hash)
-    h1.update(source_hash)
-    h1.update(artifact_hash)
-    h1.update(struct.pack(">Q", iat))
-    h1.update(eat_nonce)
-    h1.update(b"\x00" * 32)
-    lower_32 = h1.digest()
 
-    aux_challenge = hashlib.sha256(
-        f"ntrust-aux-v2:{gpu_evidence_sha256}:{pcr_composite_sha256}".encode("ascii")
-    ).digest()
-    h2 = hashlib.sha256()
-    h2.update(SECOND_COMMITMENT_DOMAIN)
-    h2.update(aux_challenge)
-    h2.update(value_x[:32])
-    upper_32 = h2.digest()
-    return lower_32 + upper_32
+def _hex(value: str, count: int, name: str) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-fA-F]{" + str(count) + r"}", value):
+        raise ValueError(f"{name} must be {count} hexadecimal characters")
+    return value.lower()
 
 
-def parse_and_verify_cpu_quote(
-    provider: str,
-    quote_bytes: bytes,
-    expected_report_data: bytes,
-) -> dict:
-    """Verify binary hardware quote invariants, RTMRs, and REPORT_DATA binding."""
-    if provider in ("sev_guest", "sev-snp", "azure_hcl"):
-        # Unwrap Azure HCL vTPM header if present
-        if len(quote_bytes) >= HCL_SNP_OFFSET + SNP_MIN_REPORT_LEN:
-            (magic,) = struct.unpack_from("<I", quote_bytes, 0)
-            if magic == HCL_MAGIC:
-                quote_bytes = quote_bytes[HCL_SNP_OFFSET:]
-        if len(quote_bytes) < SNP_MIN_REPORT_LEN:
-            raise ValueError(
-                f"SEV-SNP report too short: {len(quote_bytes)} < {SNP_MIN_REPORT_LEN}"
-            )
-        (version,) = struct.unpack_from("<I", quote_bytes, SNP_OFFSET_VERSION)
-        if version < 2:
-            raise ValueError(f"Unsupported SEV-SNP report version: {version}")
-        (policy,) = struct.unpack_from("<Q", quote_bytes, SNP_OFFSET_POLICY)
-        if policy & SNP_POLICY_DEBUG_BIT:
-            raise ValueError("SEV-SNP guest policy has DEBUG bit enabled")
-        (vmpl,) = struct.unpack_from("<I", quote_bytes, SNP_OFFSET_VMPL)
-        if vmpl != 0:
-            raise ValueError(f"SEV-SNP report must originate from VMPL 0, got {vmpl}")
-        report_data = quote_bytes[SNP_OFFSET_REPORT_DATA : SNP_OFFSET_REPORT_DATA + 64]
-        if report_data != expected_report_data:
-            raise ValueError("SEV-SNP hardware REPORT_DATA does not match expected binding")
-        measurement = quote_bytes[SNP_OFFSET_MEASUREMENT : SNP_OFFSET_MEASUREMENT + 48].hex()
-        return {
-            "tee": "sev-snp",
-            "version": version,
-            "vmpl": vmpl,
-            "debug": False,
-            "measurement_hex": measurement,
-        }
-
-    if provider in ("tdx_guest", "tdx"):
-        if len(quote_bytes) < TDX_MIN_QUOTE_LEN:
-            raise ValueError(
-                f"TDX quote too short: {len(quote_bytes)} < {TDX_MIN_QUOTE_LEN}"
-            )
-        version, _att_key_type, tee_type = struct.unpack_from("<HHI", quote_bytes, 0)
-        if version not in (4, 5):
-            raise ValueError(f"Unsupported TDX quote version: {version}")
-        if tee_type != TDX_TEE_TYPE:
-            raise ValueError(f"Unexpected TDX quote tee_type: 0x{tee_type:08x}")
-        (td_attributes,) = struct.unpack_from("<Q", quote_bytes, TDX_OFFSET_ATTRIBUTES)
-        if td_attributes & TDX_ATTR_DEBUG_BIT:
-            raise ValueError("TDX TDATTRIBUTES has DEBUG bit enabled")
-        report_data = quote_bytes[TDX_OFFSET_REPORT_DATA : TDX_OFFSET_REPORT_DATA + 64]
-        if report_data != expected_report_data:
-            raise ValueError("TDX hardware REPORTDATA does not match expected binding")
-        measurement = quote_bytes[TDX_OFFSET_MRTD : TDX_OFFSET_MRTD + 48].hex()
-        rtmrs = {
-            "rtmr0": quote_bytes[TDX_OFFSET_RTMR0 : TDX_OFFSET_RTMR0 + 48].hex(),
-            "rtmr1": quote_bytes[TDX_OFFSET_RTMR1 : TDX_OFFSET_RTMR1 + 48].hex(),
-            "rtmr2": quote_bytes[TDX_OFFSET_RTMR2 : TDX_OFFSET_RTMR2 + 48].hex(),
-            "rtmr3": quote_bytes[TDX_OFFSET_RTMR3 : TDX_OFFSET_RTMR3 + 48].hex(),
-        }
-        return {
-            "tee": "tdx",
-            "version": version,
-            "debug": False,
-            "measurement_hex": measurement,
-            "rtmrs_hex": rtmrs,
-        }
-
-    raise ValueError(f"Unsupported CPU TEE quote provider: {provider}")
+def _validate_local_uki(uki: Path | None, boot_policy: Path | None) -> None:
+    if uki is None:
+        return
+    if boot_policy is None:
+        raise ValueError("A local UKI image requires --boot-policy")
+    if not uki.is_file() or not 0 < uki.stat().st_size <= MAX_UKI_BYTES:
+        raise ValueError("Local UKI image is missing, empty or exceeds 512 MiB")
 
 
-def verify_rats_bundle(
-    bundle: dict,
-    *,
-    expected_nonce: str,
-    expected_spki_sha256: str,
-    require_gpu: bool = True,
-    allow_untrusted_cpu: bool = False,
-    expected_measurement: str | None = None,
-    expected_value_x: str | None = None,
-) -> dict:
-    """Verify an ntrust unified-quote v2 EAT + RATS composite evidence bundle."""
-    if bundle.get("eat_profile") != EAT_PROFILE or bundle.get("version") != EAT_VERSION:
-        raise ValueError(f"Unexpected EAT profile: {bundle.get('eat_profile')}")
-
-    nonce = bundle.get("nonce", "")
-    if not NONCE_RE.match(nonce) or nonce != expected_nonce.lower():
-        raise ValueError("RATS evidence nonce mismatch")
-
-    tls_binding = bundle.get("tls_binding") or {}
-    leaf_spki_sha256 = tls_binding.get("leaf_spki_sha256", "")
-    if leaf_spki_sha256 != expected_spki_sha256.lower():
-        raise ValueError(
-            "TLS SPKI mismatch: attestation evidence does not match active TLS key"
-        )
-
-    value_x_hex = bundle.get("value_x_hex", "")
-    source_hash_hex = bundle.get("source_hash_hex", "")
-    artifact_hash_hex = bundle.get("artifact_hash_hex", "")
-    for name, val in (
-        ("value_x_hex", value_x_hex),
-        ("source_hash_hex", source_hash_hex),
-        ("artifact_hash_hex", artifact_hash_hex),
-    ):
-        if not SHA384_RE.match(val):
-            raise ValueError(f"Invalid 48-byte SHA-384 field: {name}")
-    if expected_value_x and value_x_hex != expected_value_x.lower():
-        raise ValueError(f"Value X mismatch: {value_x_hex} != {expected_value_x}")
-
-    gpu_tee = bundle.get("gpu_tee") or {}
-    gpu_evidence_sha256 = gpu_tee.get("evidence_sha256", "")
-    if not NONCE_RE.match(gpu_evidence_sha256):
-        raise ValueError("Invalid GPU evidence SHA-256 digest")
-    if require_gpu:
-        if not gpu_tee.get("present") or not gpu_tee.get("verified"):
-            raise ValueError("Confidential GPU evidence is required but not verified")
-
-    tpm = bundle.get("tpm") or {}
-    pcr_composite_sha256 = tpm.get("pcr_composite_sha256", "")
-    if not NONCE_RE.match(pcr_composite_sha256):
-        raise ValueError("Invalid TPM PCR composite SHA-256 digest")
-
-    cpu_tee = bundle.get("cpu_tee") or {}
-    platform = int(cpu_tee.get("platform", 0))
-    iat = int(bundle.get("iat", 0))
-
-    expected_report_data = compute_expected_report_data(
-        value_x=bytes.fromhex(value_x_hex),
-        platform=platform,
-        tls_spki_hash=bytes.fromhex(leaf_spki_sha256),
-        source_hash=bytes.fromhex(source_hash_hex),
-        artifact_hash=bytes.fromhex(artifact_hash_hex),
-        iat=iat,
-        eat_nonce=bytes.fromhex(nonce),
-        gpu_evidence_sha256=gpu_evidence_sha256,
-        pcr_composite_sha256=pcr_composite_sha256,
-    )
-
-    if cpu_tee.get("report_data_hex") != expected_report_data.hex():
-        raise ValueError("CPU report_data_hex does not match recomputed unified-quote binding")
-
-    if not cpu_tee.get("confidential"):
-        if not allow_untrusted_cpu:
-            raise ValueError(
-                f"Guest CPU is not confidential (cvm={cpu_tee.get('cvm')})"
-            )
-        return {
-            "verified": True,
-            "confidential_cpu": False,
-            "confidential_gpu": bool(gpu_tee.get("verified")),
-            "value_x_hex": value_x_hex,
-            "leaf_spki_sha256": leaf_spki_sha256,
-            "report_data_hex": expected_report_data.hex(),
-            "measurement_hex": None,
-        }
-
-    quote_b64 = cpu_tee.get("quote_b64")
-    if not quote_b64:
-        raise ValueError("Missing hardware quote_b64 in confidential CPU bundle")
-    quote_bytes = base64.b64decode(quote_b64)
-    parsed_quote = parse_and_verify_cpu_quote(
-        cpu_tee.get("provider", ""), quote_bytes, expected_report_data
-    )
-    if expected_measurement and parsed_quote["measurement_hex"] != expected_measurement.lower():
-        raise ValueError(
-            f"Launch measurement mismatch: {parsed_quote['measurement_hex']} != {expected_measurement}"
-        )
-
-    return {
-        "verified": True,
-        "confidential_cpu": True,
-        "cpu_tee": parsed_quote["tee"],
-        "confidential_gpu": bool(gpu_tee.get("verified")),
-        "value_x_hex": value_x_hex,
-        "leaf_spki_sha256": leaf_spki_sha256,
-        "report_data_hex": expected_report_data.hex(),
-        "measurement_hex": parsed_quote["measurement_hex"],
-        "rtmrs_hex": parsed_quote.get("rtmrs_hex"),
-        "pcr_composite_sha256": pcr_composite_sha256,
-    }
+def verify_rats_bundle(raw: bytes, *, expected_nonce: str, tls_spki_der: bytes,
+                       expected_value_x: str, expected_measurement: str,
+                       gpu_policy: Path | None = None, cpu_only: bool = False,
+                       boot_policy: Path | None = None, uki: Path | None = None,
+                       platform: str | None = None,
+                       cpu_collateral: Path | None = None, cpu_tcb_policy: Path | None = None,
+                       uq_binary: Path = Path("/usr/local/bin/uq")) -> dict:
+    """Invoke the real Rust verifier on the exact transport bytes and observed key."""
+    nonce = _hex(expected_nonce, 64, "nonce")
+    value_x = _hex(expected_value_x, 96, "expected Value X")
+    measurement = _hex(expected_measurement, 96, "expected CPU measurement")
+    if not isinstance(raw, bytes) or not raw or len(raw) > MAX_EVIDENCE_BYTES:
+        raise ValueError("Receipt body is empty or oversized")
+    if not tls_spki_der or len(tls_spki_der) > 16 * 1024:
+        raise ValueError("Observed TLS SPKI DER is empty or oversized")
+    if cpu_only == (gpu_policy is not None):
+        raise ValueError("Select exactly one enrolled GPU policy or explicit CPU-only relay policy")
+    if platform is not None and platform not in ("tdx", "sev-snp"):
+        raise ValueError("Expected platform must be tdx or sev-snp")
+    if platform is not None and (cpu_collateral is None or cpu_tcb_policy is None):
+        raise ValueError("Explicit TDX/SNP policy requires CPU collateral and an independent CPU TCB policy")
+    _validate_local_uki(uki, boot_policy)
+    if cpu_collateral is not None and (not cpu_collateral.is_file() or cpu_collateral.stat().st_size > MAX_EVIDENCE_BYTES):
+        raise ValueError("CPU collateral is missing or oversized")
+    for name, policy in (("GPU", gpu_policy), ("boot", boot_policy), ("CPU TCB", cpu_tcb_policy)):
+        if policy is not None and (not policy.is_file() or policy.stat().st_size > MAX_VERDICT_BYTES):
+            raise ValueError(f"{name} policy is missing or oversized")
+    if not uq_binary.is_absolute() or not uq_binary.is_file() or not os.access(uq_binary, os.X_OK):
+        raise RuntimeError("An installed Rust uq executable at an absolute path is required")
+    with tempfile.TemporaryDirectory(prefix="ntrust-verifier-") as directory:
+        work = Path(directory)
+        receipt, spki = work / "receipt.json", work / "tls-spki.der"
+        receipt.write_bytes(raw)
+        spki.write_bytes(tls_spki_der)
+        command = [str(uq_binary), "verify-composite", str(receipt), "--format", "json",
+                   "--nonce", nonce, "--tls-spki", str(spki), "--value-x", value_x,
+                   "--expected-platform-measurement", measurement, "--json"]
+        if gpu_policy is not None:
+            command.extend(["--require-gpu-verified", "--gpu-policy", str(gpu_policy.resolve())])
+        if boot_policy is not None:
+            command.extend(["--boot-policy", str(boot_policy.resolve())])
+        if uki is not None:
+            command.extend(["--uki", str(uki.resolve())])
+        if platform is not None:
+            command.extend(["--platform", platform])
+        if cpu_collateral is not None:
+            command.extend(["--cpu-collateral", str(cpu_collateral.resolve())])
+        if cpu_tcb_policy is not None:
+            command.extend(["--cpu-tcb-policy", str(cpu_tcb_policy.resolve())])
+        with (work / "verdict.json").open("w+b") as stdout:
+            try:
+                result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=stdout,
+                                        stderr=subprocess.DEVNULL, timeout=VERIFICATION_TIMEOUT,
+                                        check=False)
+            except subprocess.TimeoutExpired as error:
+                raise RuntimeError("Rust attestation verification timed out") from error
+            except OSError as error:
+                raise RuntimeError("Rust attestation verifier could not start") from error
+            if result.returncode != 0:
+                raise RuntimeError(f"Rust attestation verification failed (exit {result.returncode})")
+            stdout.seek(0)
+            verdict_raw = stdout.read(MAX_VERDICT_BYTES + 1)
+        if not verdict_raw or len(verdict_raw) > MAX_VERDICT_BYTES:
+            raise RuntimeError("Rust verifier returned no bounded verdict")
+        verdict = json.loads(verdict_raw)
+        if not isinstance(verdict, dict) or verdict.get("valid") is not True:
+            raise RuntimeError("Rust verifier did not return a valid verdict")
+        checks = verdict.get("checks")
+        if not isinstance(checks, list) or not any(isinstance(c, dict) and c.get("check") == "cpu" and c.get("passed") is True for c in checks):
+            raise RuntimeError("Rust verifier omitted authenticated CPU appraisal")
+        if gpu_policy is not None and (verdict.get("gpu") is None or not any(isinstance(c, dict) and c.get("check") == "gpu" and c.get("passed") is True for c in checks)):
+            raise RuntimeError("Rust verifier omitted required GPU appraisal")
+        return verdict
 
 
-def fetch_and_verify(
-    base_url: str,
-    *,
-    require_gpu: bool = True,
-    allow_untrusted_cpu: bool = False,
-    expected_measurement: str | None = None,
-    expected_value_x: str | None = None,
-    cafile: str | None = None,
-) -> dict:
-    parsed = urlparse(base_url if "://" in base_url else f"https://{base_url}")
-    if parsed.scheme != "https" or not parsed.hostname:
-        raise ValueError("An https:// base URL or hostname is required")
-    host = parsed.hostname
-    port = parsed.port or 443
+def fetch_and_verify(base_url: str, *, expected_value_x: str, expected_measurement: str,
+                     gpu_policy: Path | None = None, cpu_only: bool = False,
+                     boot_policy: Path | None = None, uki: Path | None = None,
+                     cafile: str | None = None,
+                     platform: str | None = None, cpu_collateral: Path | None = None,
+                     cpu_tcb_policy: Path | None = None,
+                     uq_binary: Path = Path("/usr/local/bin/uq")) -> dict:
+    _hex(expected_value_x, 96, "expected Value X")
+    _hex(expected_measurement, 96, "expected CPU measurement")
+    if cpu_only == (gpu_policy is not None):
+        raise ValueError("Select exactly one enrolled GPU policy or explicit CPU-only relay policy")
+    if platform is not None and (cpu_collateral is None or cpu_tcb_policy is None):
+        raise ValueError("Explicit TDX/SNP policy requires CPU collateral and an independent CPU TCB policy")
+    _validate_local_uki(uki, boot_policy)
+    parsed = urlparse(base_url if "://" in base_url else "https://" + base_url)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in ("", "/"):
+        raise ValueError("A bare HTTPS origin is required")
+    host, port = parsed.hostname, parsed.port or 443
     nonce = secrets.token_hex(32)
-
     ctx = ssl.create_default_context(cafile=cafile)
     ctx.minimum_version = ssl.TLSVersion.TLSv1_3
-    with socket.create_connection((host, port), timeout=15.0) as sock:
-        with ctx.wrap_socket(sock, server_hostname=host) as ssock:
-            cert_der = ssock.getpeercert(binary_form=True)
-            if not cert_der:
-                raise RuntimeError("No TLS peer certificate received")
-            spki_sha256 = hashlib.sha256(extract_spki_der(cert_der)).hexdigest()
-            conn = http.client.HTTPSConnection(host, port, context=ctx)
-            conn.sock = ssock
-            conn.request(
-                "GET",
-                f"/v1/attest?nonce={nonce}",
-                headers={"Host": host, "Accept": "application/json"},
-            )
-            resp = conn.getresponse()
-            body = resp.read()
-            if resp.status != 200:
-                raise RuntimeError(f"GET /v1/attest failed with HTTP {resp.status}")
-            bundle = json.loads(body.decode("utf-8"))
-
-    return verify_rats_bundle(
-        bundle,
-        expected_nonce=nonce,
-        expected_spki_sha256=spki_sha256,
-        require_gpu=require_gpu,
-        allow_untrusted_cpu=allow_untrusted_cpu,
-        expected_measurement=expected_measurement,
-        expected_value_x=expected_value_x,
-    )
+    with socket.create_connection((host, port), timeout=15) as sock:
+        with ctx.wrap_socket(sock, server_hostname=host) as stream:
+            stream.settimeout(VERIFICATION_TIMEOUT + 10)
+            cert = stream.getpeercert(binary_form=True)
+            if not cert:
+                raise RuntimeError("TLS server returned no peer certificate")
+            spki = extract_spki_der(cert)
+            # Attach the already authenticated socket; do not create a second
+            # connection whose key might differ from the key used for evidence.
+            connection = http.client.HTTPSConnection(host, port, context=ctx)
+            connection.sock = stream
+            connection.request("GET", f"/v1/attest?nonce={nonce}", headers={"Accept": "application/json", "Connection": "close"})
+            response = connection.getresponse()
+            if response.status != 200:
+                raise RuntimeError(f"Attestation endpoint returned HTTP {response.status}")
+            if response.getheader("Content-Encoding", "identity") != "identity":
+                raise RuntimeError("Compressed attestation responses are unsupported")
+            length = response.getheader("Content-Length")
+            if length is not None and (not length.isdecimal() or int(length) > MAX_EVIDENCE_BYTES):
+                raise RuntimeError("Attestation response exceeds byte limit")
+            deadline = time.monotonic() + VERIFICATION_TIMEOUT
+            body = bytearray()
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise RuntimeError("Attestation response deadline exceeded")
+                stream.settimeout(remaining)
+                chunk = response.read1(min(64 * 1024, MAX_EVIDENCE_BYTES + 1 - len(body)))
+                if not chunk:
+                    break
+                body.extend(chunk)
+                if len(body) > MAX_EVIDENCE_BYTES:
+                    raise RuntimeError("Attestation response exceeds byte limit")
+            body = bytes(body)
+    return verify_rats_bundle(body, expected_nonce=nonce, tls_spki_der=spki,
+                             expected_value_x=expected_value_x, expected_measurement=expected_measurement,
+                             gpu_policy=gpu_policy, cpu_only=cpu_only, boot_policy=boot_policy, uki=uki,
+                             uq_binary=uq_binary, platform=platform, cpu_collateral=cpu_collateral,
+                             cpu_tcb_policy=cpu_tcb_policy)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Verify ntrust unified-quote (https://uq.secure.build/eat/v2) remote attestation over TLS 1.3."
-    )
-    parser.add_argument("endpoint", help="HTTPS endpoint (e.g. https://inference.example.com)")
-    parser.add_argument(
-        "--no-gpu",
-        action="store_true",
-        help="Allow CPU-only TEE relay or dev path without GPU evidence",
-    )
-    parser.add_argument(
-        "--allow-untrusted-cpu",
-        action="store_true",
-        help="Allow non-TEE KVM tryout responses (never treated as confidential)",
-    )
-    parser.add_argument(
-        "--expected-measurement",
-        help="Expected 96-hex SEV-SNP launch measurement or TDX MRTD",
-    )
-    parser.add_argument(
-        "--expected-value-x",
-        help="Expected 96-hex SHA-384 disk image tree measurement (Value X)",
-    )
-    parser.add_argument("--cafile", help="Custom CA bundle for staging ACME certificates")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("endpoint", help="HTTPS origin serving /v1/attest")
+    parser.add_argument("--expected-value-x", required=True, help="Approved image Value X (96 hex)")
+    parser.add_argument("--expected-measurement", required=True, help="Approved CPU launch measurement (96 hex)")
+    policy = parser.add_mutually_exclusive_group(required=True)
+    policy.add_argument("--gpu-policy", type=Path, help="Locally enrolled Rust GPU inventory policy JSON")
+    policy.add_argument("--cpu-only", action="store_true", help="Authenticate a CPU relay only; no claim about remote inference hardware")
+    parser.add_argument("--boot-policy", type=Path, help="Optional enrolled Rust measured-boot policy JSON")
+    parser.add_argument("--uki", type=Path, help="Local verifier UKI image (at most 512 MiB); requires --boot-policy")
+    parser.add_argument("--platform", choices=("tdx", "sev-snp"), help="Expected CPU platform")
+    parser.add_argument("--cpu-collateral", type=Path, help="Authenticated TDX/SNP collateral JSON; required for an explicit CPU platform")
+    parser.add_argument("--cpu-tcb-policy", type=Path, help="Independent CPU rollback floors; required for an explicit CPU platform")
+    parser.add_argument("--uq-bin", type=Path, default=Path("/usr/local/bin/uq"))
+    parser.add_argument("--cafile", help="Explicit trusted TLS CA bundle")
     args = parser.parse_args()
     try:
-        result = fetch_and_verify(
-            args.endpoint,
-            require_gpu=not args.no_gpu,
-            allow_untrusted_cpu=args.allow_untrusted_cpu,
-            expected_measurement=args.expected_measurement,
-            expected_value_x=args.expected_value_x,
-            cafile=args.cafile,
-        )
-    except Exception as exc:
-        print(f"ATTESTATION FAILED: {exc}", file=sys.stderr)
-        sys.exit(1)
-    print(json.dumps(result, indent=2, sort_keys=True))
+        verdict = fetch_and_verify(args.endpoint, expected_value_x=args.expected_value_x,
+                                   expected_measurement=args.expected_measurement,
+                                   gpu_policy=args.gpu_policy, cpu_only=args.cpu_only,
+                                   boot_policy=args.boot_policy, uki=args.uki, cafile=args.cafile, uq_binary=args.uq_bin,
+                                   platform=args.platform, cpu_collateral=args.cpu_collateral,
+                                   cpu_tcb_policy=args.cpu_tcb_policy)
+    except Exception as error:
+        print(f"ATTESTATION FAILED: {error}", file=sys.stderr)
+        return 1
+    print(json.dumps(verdict, indent=2, sort_keys=True))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,5 +1,5 @@
 [Unit]
-Description=IETF RATS composite remote attestation responder
+Description=Rust composite attestation transport (activation requires hardware acceptance)
 BindsTo=ntrust-gpu.service
 After=ntrust-gpu.service
 ConditionPathExists=/etc/ntrust/runtime.env
@@ -7,6 +7,10 @@ ConditionPathExists=/etc/ntrust/runtime.env
 [Service]
 Type=simple
 EnvironmentFile=/etc/ntrust/runtime.env
+Environment=NTRUST_ATTEST_MODE=gpu
+Environment=TMPDIR=/run/ntrust-attest
+RuntimeDirectory=ntrust-attest
+RuntimeDirectoryMode=0700
 ExecStart=/usr/bin/python3 /usr/local/lib/ntrust/attest-server
 Restart=on-failure
 RestartSec=5
@@ -27,14 +31,27 @@ SystemCallErrorNumber=EPERM
 ProtectSystem=strict
 ProtectHome=yes
 TemporaryFileSystem=/tmp:rw,nosuid,nodev,noexec,mode=1777 /var/tmp:rw,nosuid,nodev,noexec,mode=1777
-PrivateDevices=yes
-RestrictAddressFamilies=AF_UNIX AF_INET
-IPAddressAllow=127.0.0.1/32
-IPAddressDeny=any
+# Quote/NVML/NSCQ access is explicitly scoped; no GPU readiness is changed here.
+PrivateDevices=no
+DevicePolicy=closed
+DeviceAllow=/dev/sev-guest rw
+DeviceAllow=/dev/tdx-guest rw
+DeviceAllow=/dev/tdx_guest rw
+DeviceAllow=/dev/tpm0 rw
+DeviceAllow=/dev/tpmrm0 rw
+DeviceAllow=/dev/nvidiactl rw
+DeviceAllow=char-nvidia-frontend rw
+DeviceAllow=char-nvidia-caps rw
+DeviceAllow=char-nvidia-nvswitch rw
+ReadWritePaths=-/sys/kernel/config/tsm/report
+# Rust authenticates and bounds collateral from its configured vendor endpoints.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_VSOCK
+SocketBindDeny=any
+SocketBindAllow=ipv4:tcp:8082
 LimitCORE=0
 MemorySwapMax=0
-MemoryMax=128M
-TasksMax=16
+MemoryMax=512M
+TasksMax=64
 UMask=0077
 StandardOutput=null
 StandardError=null

@@ -1,19 +1,10 @@
 #!/usr/bin/env python3
-"""In-guest unified-quote (https://uq.secure.build/eat/v2) attestation responder.
+"""Local HTTP transport for Rust uq composite collection.
 
-Aligns ntrust with maceip/unified-quote (uq):
-- Computes the deterministic 48-byte SHA-384 disk image tree measurement
-  (value_x / artifact_hash) over the guest's immutable kernel, service units,
-  admission scripts, NGINX template, and Python wheel lockfile.
-- Collects vTPM PCR 0..9 measurements (/sys/class/tpm/tpm0/pcr-sha256) on
-  AMD SEV-SNP and RTMR 0..3 measurements on Intel TDX so the kernel, cmdline,
-  and disk image are bound into the hardware quote across GCP, Azure, and AWS.
-- Emits the canonical unified-quote v2 64-byte REPORT_DATA layout:
-  report_data[0..32]  = EatToken::binding_bytes_v2()
-  report_data[32..64] = EatToken::second_commitment(sha256(gpu || tpm_pcrs))
-- Never labels an ordinary KVM VM as confidential.
+Only the pinned Rust binary collects evidence. This adapter emits no verification
+verdict, performs no CPU/GPU appraisal, and never reuses an admission JSON file.
+The independent client verifies the CPU/GPU evidence with its enrolled policy.
 """
-import base64
 import hashlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
@@ -22,49 +13,38 @@ from pathlib import Path
 import re
 import socket
 import ssl
-import struct
+import stat
 import subprocess
 import tempfile
-import time
 from urllib.parse import parse_qs, urlparse
 
-EAT_VERSION = 2
 EAT_PROFILE = "https://uq.secure.build/eat/v2"
-SECOND_COMMITMENT_DOMAIN = b"uq/eat/report-data-2\0"
 NONCE_RE = re.compile(r"^[0-9a-f]{64}$")
-NO_GPU_DIGEST = hashlib.sha256(b"ntrust-no-gpu-v1").hexdigest()
-
-PLATFORM_UNKNOWN = 0
-PLATFORM_NITRO = 1
-PLATFORM_SEV_SNP = 2
-PLATFORM_TDX = 3
-
-# Azure HCL vTPM report header ("HCLA" little-endian at offset 0, SNP report at 0x20)
-HCL_MAGIC = 0x414C4348
-HCL_SNP_OFFSET = 0x20
-SNP_REPORT_LEN = 1184
+MAX_EVIDENCE_BYTES = 64 * 1024 * 1024
+COLLECTION_TIMEOUT = 240
+UQ_BINARY = Path("/usr/local/bin/uq")
+UQ_RELEASE = Path("/usr/share/doc/ntrust/uq-release.json")
+RUNTIME_DIR = Path("/run/ntrust-attest")
 
 DEFAULT_MEASURED_PATHS = (
-    "/usr/local/lib/ntrust/gpu-ready",
-    "/usr/local/lib/ntrust/tee-ready",
-    "/usr/local/lib/ntrust/https-start",
-    "/usr/local/lib/ntrust/inference-ready",
-    "/usr/local/lib/ntrust/inference-start",
-    "/usr/local/lib/ntrust/origin-ready",
-    "/usr/local/lib/ntrust/fetch-model",
-    "/usr/local/lib/ntrust/attest-server",
-    "/usr/local/bin/ntrust-status",
-    "/etc/ntrust/nginx.conf.template",
-    "/etc/ntrust/model.json",
-    "/etc/systemd/system/ntrust-gpu.service",
-    "/etc/systemd/system/ntrust-tee.service",
-    "/etc/systemd/system/ntrust-attest.service",
-    "/etc/systemd/system/ntrust-inference.service",
-    "/etc/systemd/system/ntrust-origin.service",
-    "/etc/systemd/system/ntrust-https.service",
-    "/usr/share/doc/ntrust/requirements.lock",
-    "/boot/vmlinuz-7.2.10-ntrust",
-    "/boot/config-7.2.10-ntrust",
+    '/boot/config-7.2.10-ntrust',
+    '/boot/vmlinuz-7.2.10-ntrust',
+    '/etc/ntrust/model.json',
+    '/etc/ntrust/nginx.conf.template',
+    '/etc/systemd/system/ntrust-attest.service',
+    '/etc/systemd/system/ntrust-gpu.service',
+    '/etc/systemd/system/ntrust-https.service',
+    '/etc/systemd/system/ntrust-inference.service',
+    '/usr/local/bin/ntrust-status',
+    '/usr/local/bin/uq',
+    '/usr/local/lib/ntrust/attest-server',
+    '/usr/local/lib/ntrust/fetch-model',
+    '/usr/local/lib/ntrust/gpu-ready',
+    '/usr/local/lib/ntrust/https-start',
+    '/usr/local/lib/ntrust/inference-ready',
+    '/usr/local/lib/ntrust/inference-start',
+    '/usr/share/doc/ntrust/requirements.lock',
+    '/usr/share/doc/ntrust/uq-release.json',
 )
 
 
@@ -112,411 +92,191 @@ def extract_spki_der(cert_der: bytes) -> bytes:
     return cert_der[pos:spki_end]
 
 
-def compute_value_x(root: Path | None = None, paths: tuple[str, ...] = DEFAULT_MEASURED_PATHS) -> bytes:
-    """Compute the 48-byte SHA-384 Value X using unified-quote's tree-hash format.
-
-    Each existing file in `paths` is hashed with SHA-384 (raw 48 bytes) and fed
-    in sorted order as `relative_path:` + raw_48_byte_sha384 + `\\n`, matching
-    `v2/src/value_x.rs::compute_tree_hash` in maceip/unified-quote.
-    """
-    entries: list[tuple[str, bytes]] = []
-    if root is not None and root.is_dir():
-        for p in sorted(root.rglob("*")):
-            if p.is_symlink() or not p.is_file():
-                continue
-            if p.name in (".git", "target", "node_modules", ".DS_Store", "out"):
-                continue
-            rel = p.relative_to(root).as_posix()
-            entries.append((rel, hashlib.sha384(p.read_bytes()).digest()))
-    else:
-        for raw_path in sorted(paths):
-            p = Path(raw_path)
-            if p.is_file() and not p.is_symlink():
-                rel = raw_path.lstrip("/")
-                entries.append((rel, hashlib.sha384(p.read_bytes()).digest()))
-    entries.sort(key=lambda item: item[0])
-    h = hashlib.sha384()
-    for rel, digest48 in entries:
-        h.update(rel.encode("utf-8"))
-        h.update(b":")
-        h.update(digest48)
-        h.update(b"\n")
-    return h.digest()
-
-
-def collect_tpm_pcrs(tpm_pcr_dir: Path | None = None) -> dict:
-    """Read vTPM / NitroTPM SHA-256 PCRs 0..9 covering firmware, GRUB, kernel, and cmdline."""
-    if tpm_pcr_dir is None:
-        tpm_pcr_dir = Path(
-            os.environ.get("NTRUST_TPM_PCR_DIR", "/sys/class/tpm/tpm0/pcr-sha256")
-        )
-    pcrs: dict[str, str] = {}
-    if tpm_pcr_dir.is_dir():
-        for idx in range(10):
-            p = tpm_pcr_dir / str(idx)
-            if p.is_file():
-                val = p.read_text().strip().lower()
-                if NONCE_RE.match(val):
-                    pcrs[str(idx)] = val
-    h = hashlib.sha256()
-    h.update(b"ntrust-tpm-pcrs-v1:")
-    for idx in sorted(pcrs.keys(), key=int):
-        h.update(f"{idx}:{pcrs[idx]}\n".encode("ascii"))
-    return {
-        "present": bool(pcrs),
-        "pcrs_sha256": pcrs,
-        "pcr_composite_sha256": h.hexdigest(),
-    }
-
-
-def compute_uq_binding_bytes_v2(
-    *,
-    value_x: bytes,
-    platform: int,
-    tls_spki_hash: bytes,
-    source_hash: bytes,
-    artifact_hash: bytes,
-    iat: int,
-    eat_nonce: bytes,
-    previous_hash: bytes = b"\x00" * 32,
-) -> bytes:
-    """Exact byte-for-byte implementation of maceip/unified-quote EatToken::binding_bytes_v2."""
-    if len(value_x) != 48 or len(source_hash) != 48 or len(artifact_hash) != 48:
-        raise ValueError("value_x, source_hash, and artifact_hash must be 48 bytes (SHA-384)")
-    if len(tls_spki_hash) != 32 or len(eat_nonce) != 32 or len(previous_hash) != 32:
-        raise ValueError("tls_spki_hash, eat_nonce, and previous_hash must be 32 bytes")
-    h = hashlib.sha256()
-    h.update(struct.pack(">I", EAT_VERSION))
-    profile_bytes = EAT_PROFILE.encode("ascii")
-    h.update(struct.pack(">I", len(profile_bytes)))
-    h.update(profile_bytes)
-    h.update(value_x)
-    h.update(bytes([platform]))
-    h.update(tls_spki_hash)
-    h.update(source_hash)
-    h.update(artifact_hash)
-    h.update(struct.pack(">Q", iat))
-    h.update(eat_nonce)
-    h.update(previous_hash)
-    return h.digest()
-
-
-def compute_uq_second_commitment(value_x: bytes, challenge_32: bytes | None) -> bytes:
-    """Exact implementation of maceip/unified-quote EatToken::second_commitment."""
-    if len(value_x) != 48:
-        raise ValueError("value_x must be 48 bytes")
-    if challenge_32 is None:
-        return value_x[:32]
-    if len(challenge_32) != 32:
-        raise ValueError("challenge_32 must be 32 bytes")
-    h = hashlib.sha256()
-    h.update(SECOND_COMMITMENT_DOMAIN)
-    h.update(challenge_32)
-    h.update(value_x[:32])
-    return h.digest()
-
-
-def compute_uq_report_data_64(
-    *,
-    value_x: bytes,
-    platform: int,
-    tls_spki_hash: bytes,
-    source_hash: bytes,
-    artifact_hash: bytes,
-    iat: int,
-    eat_nonce: bytes,
-    gpu_evidence_sha256: str,
-    pcr_composite_sha256: str,
-) -> tuple[bytes, bytes]:
-    """Compute unified-quote 64-byte report_data and the 32-byte auxiliary challenge."""
-    aux_challenge = hashlib.sha256(
-        f"ntrust-aux-v2:{gpu_evidence_sha256}:{pcr_composite_sha256}".encode("ascii")
-    ).digest()
-    lower_32 = compute_uq_binding_bytes_v2(
-        value_x=value_x,
-        platform=platform,
-        tls_spki_hash=tls_spki_hash,
-        source_hash=source_hash,
-        artifact_hash=artifact_hash,
-        iat=iat,
-        eat_nonce=eat_nonce,
-    )
-    upper_32 = compute_uq_second_commitment(value_x, aux_challenge)
-    return lower_32 + upper_32, aux_challenge
-
-
-def collect_tsm_quote(report_data: bytes, tsm_root: Path) -> dict:
-    """Request a hardware CPU TEE quote via Linux ConfigFS-TSM."""
-    if len(report_data) != 64:
-        raise ValueError("ConfigFS-TSM inblob requires exactly 64 bytes")
-    slot = Path(tempfile.mkdtemp(prefix="ntrust_", dir=str(tsm_root)))
+def digest_regular_file(path: Path, algorithm: str) -> bytes:
+    """Hash one required regular file without following a final symlink."""
+    if not path.is_absolute():
+        raise RuntimeError("Measured file paths must be absolute")
+    for parent in path.parents:
+        if parent.is_symlink():
+            raise RuntimeError(f"Measured path traverses a symlink: {path}")
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
-        (slot / "inblob").write_bytes(report_data)
-        quote_bytes = (slot / "outblob").read_bytes()
-        provider = (slot / "provider").read_text().strip()
-        generation = int((slot / "generation").read_text().strip())
-        if generation < 1 or not quote_bytes:
-            raise RuntimeError("ConfigFS-TSM quote generation incomplete")
-        return {
-            "provider": provider,
-            "generation": generation,
-            "quote_b64": base64.b64encode(quote_bytes).decode("ascii"),
-        }
-    finally:
-        try:
-            slot.rmdir()
-        except OSError:
-            pass
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > 512 * 1024 * 1024:
+            raise RuntimeError(f"Required measured file is nonregular or oversized: {path}")
+    except BaseException:
+        os.close(descriptor)
+        raise
+    with os.fdopen(descriptor, "rb") as stream:
+        digest, total = hashlib.new(algorithm), 0
+        while chunk := stream.read(1024 * 1024):
+            total += len(chunk)
+            if total > 512 * 1024 * 1024:
+                raise RuntimeError("Measured file grew beyond the byte limit")
+            digest.update(chunk)
+        after = os.fstat(stream.fileno())
+        current = path.lstat()
+        identity = lambda info: (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        if total != before.st_size or identity(before) != identity(after) or identity(after) != identity(current):
+            raise RuntimeError(f"Measured file changed during hashing: {path}")
+        return digest.digest()
 
 
-def fetch_live_tls_cert_der(
-    domain: str,
-    port: int = 443,
-    cert_file: str | None = None,
-) -> bytes:
-    """Read the serving TLS leaf certificate in DER form."""
-    if cert_file:
-        raw = Path(cert_file).read_bytes()
-        if b"-----BEGIN CERTIFICATE-----" in raw:
-            return ssl.PEM_cert_to_DER_cert(raw.decode("ascii"))
-        return raw
+def compute_value_x(paths: tuple[str, ...] = DEFAULT_MEASURED_PATHS) -> bytes:
+    """Hash the complete required Ntrust file manifest; absent files are errors.
+
+    The approved Value X must be enrolled independently for this exact manifest.
+    This is an application-file closure, not a signed boot log or full disk hash.
+    Entries use the uq tree-hash encoding: relative path, colon, SHA-384, newline.
+    """
+    if not paths or len(set(paths)) != len(paths):
+        raise RuntimeError("Measured file manifest is empty or contains duplicates")
+    digest = hashlib.sha384()
+    for raw in sorted(paths):
+        path = Path(raw)
+        if not path.is_absolute() or str(path) != raw or any(c in raw for c in ("\n", "\r", "\0")):
+            raise RuntimeError("Measured path is not canonical")
+        digest.update(raw.lstrip("/").encode("utf-8"))
+        digest.update(b":")
+        digest.update(digest_regular_file(path, "sha384"))
+        digest.update(b"\n")
+    return digest.digest()
+
+
+def require_pinned_uq(binary: Path = UQ_BINARY, release: Path = UQ_RELEASE) -> None:
+    """Check the installed bytes against the build-host verified release record."""
+    if binary.is_symlink() or not binary.is_file() or not os.access(binary, os.X_OK):
+        raise RuntimeError("The pinned Rust uq executable is unavailable")
+    if release.is_symlink() or not release.is_file() or release.stat().st_size > 4096:
+        raise RuntimeError("The verified uq release record is unavailable")
+    record = json.loads(release.read_text())
+    expected = record.get("binary_sha256", "")
+    if not re.fullmatch(r"[0-9a-f]{64}", expected):
+        raise RuntimeError("The uq binary SHA-256 pin is invalid")
+    actual = digest_regular_file(binary, "sha256").hex()
+    if actual != expected:
+        raise RuntimeError("The installed uq binary differs from its approved pin")
+
+
+def fetch_live_tls_cert_der(domain: str, port: int = 443) -> bytes:
+    """Observe the current local TLS key; the customer authenticates its own TLS peer."""
+    # Certificate trust is checked by the remote customer. Here the listener is
+    # fixed to loopback and only its current key is committed into fresh evidence.
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ctx.minimum_version = ssl.TLSVersion.TLSv1_3
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
-    with socket.create_connection(("127.0.0.1", port), timeout=5.0) as sock:
-        with ctx.wrap_socket(sock, server_hostname=domain) as ssock:
-            der = ssock.getpeercert(binary_form=True)
-            if not der:
-                raise RuntimeError("No TLS peer certificate returned by local listener")
-            return der
+    with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+        with ctx.wrap_socket(sock, server_hostname=domain) as stream:
+            cert = stream.getpeercert(binary_form=True)
+            if not cert or len(cert) > 64 * 1024:
+                raise RuntimeError("Local TLS listener returned no bounded certificate")
+            return cert
 
 
-def detect_cvm() -> str:
-    override = os.environ.get("NTRUST_CVM_OVERRIDE")
-    if override is not None:
-        return override.strip()
-    res = subprocess.run(
-        ["systemd-detect-virt", "--cvm"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return res.stdout.strip() or "none"
-
-
-def build_rats_evidence(
-    nonce_hex: str,
-    *,
-    domain: str | None = None,
-    tls_port: int = 443,
-    cert_file: str | None = None,
-    gpu_evidence_path: Path | None = None,
-    model_manifest_path: Path | None = None,
-    tsm_root: Path | None = None,
-    tpm_pcr_dir: Path | None = None,
-    value_x_root: Path | None = None,
-    cvm: str | None = None,
-    iat: int | None = None,
-) -> dict:
-    """Construct the unified-quote v2 EAT + RATS composite evidence bundle."""
-    nonce_clean = nonce_hex.strip().lower()
-    if not NONCE_RE.match(nonce_clean):
-        raise ValueError("nonce must be a 64-character lowercase hex string (32 bytes)")
-    eat_nonce = bytes.fromhex(nonce_clean)
-
-    domain = domain or os.environ.get("NTRUST_DOMAIN", "localhost")
-    cert_file = cert_file or os.environ.get("NTRUST_TLS_CERT_FILE")
-    cert_der = fetch_live_tls_cert_der(domain, port=tls_port, cert_file=cert_file)
-    spki_der = extract_spki_der(cert_der)
-    tls_spki_hash = hashlib.sha256(spki_der).digest()
-    leaf_spki_sha256 = tls_spki_hash.hex()
-    leaf_cert_sha256 = hashlib.sha256(cert_der).hexdigest()
-
-    # If the native Rust uq binary is present on the system, delegate directly to it
-    uq_path = os.environ.get("NTRUST_UQ_BIN") or (
-        "/usr/local/bin/uq" if Path("/usr/local/bin/uq").is_file() else None
-    )
-    if uq_path:
+def build_rats_evidence(nonce_hex: str) -> dict:
+    """Return raw Rust EAT JSON, or fail; never construct a substitute receipt."""
+    if not NONCE_RE.fullmatch(nonce_hex):
+        raise ValueError("nonce must be exactly 64 lowercase hexadecimal characters")
+    mode = os.environ.get("NTRUST_ATTEST_MODE")
+    if mode not in ("gpu", "cpu-only"):
+        raise RuntimeError("NTRUST_ATTEST_MODE must explicitly select gpu or cpu-only")
+    domain = os.environ.get("NTRUST_DOMAIN", "")
+    if not domain:
+        raise RuntimeError("NTRUST_DOMAIN is required")
+    require_pinned_uq()
+    spki = extract_spki_der(fetch_live_tls_cert_der(domain))
+    value_x = compute_value_x().hex()
+    if not RUNTIME_DIR.is_dir() or RUNTIME_DIR.is_symlink():
+        raise RuntimeError("Private attestation runtime directory is unavailable")
+    # systemd provisions this RAM directory with mode 0700. Each request owns
+    # its nonce, observed SPKI and output; no static GPU admission result is read.
+    with tempfile.TemporaryDirectory(prefix="request-", dir=RUNTIME_DIR) as name:
+        work = Path(name)
+        spki_path, output = work / "tls-spki.der", work / "receipt.json"
+        spki_path.write_bytes(spki)
+        command = [str(UQ_BINARY), "collect", "--nonce", nonce_hex,
+                   "--tls-spki", str(spki_path), "--value-x", value_x,
+                   "--out", str(output), "--format", "json"]
+        if mode == "gpu":
+            topology = os.environ.get("NTRUST_GPU_TOPOLOGY", "auto")
+            if topology not in ("auto", "independent", "ppcie"):
+                raise RuntimeError("Invalid NTRUST_GPU_TOPOLOGY")
+            command.extend(["--gpu", "--topology", topology])
+        boot_log = os.environ.get("NTRUST_TDX_BOOT_LOG")
+        if boot_log:
+            if not Path(boot_log).is_absolute():
+                raise RuntimeError("NTRUST_TDX_BOOT_LOG must be an absolute path")
+            command.extend(["--boot-log", boot_log])
         try:
-            proc = subprocess.run(
-                [uq_path, "collect", "--nonce", nonce_clean, "--tls-spki-hash", leaf_spki_sha256, "--json"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-                check=False,
-            )
-            if proc.returncode == 0 and proc.stdout.strip():
-                return json.loads(proc.stdout)
-        except Exception:
-            pass
-
-    if gpu_evidence_path is None:
-        env_gpu = os.environ.get("NTRUST_GPU_EVIDENCE_PATH")
-        if env_gpu:
-            gpu_evidence_path = Path(env_gpu)
-        elif Path("/run/ntrust-gpu/attestation.json").is_file():
-            gpu_evidence_path = Path("/run/ntrust-gpu/attestation.json")
-        elif Path("/run/ntrust-tee/attestation.json").is_file():
-            gpu_evidence_path = Path("/run/ntrust-tee/attestation.json")
-
-    if gpu_evidence_path and gpu_evidence_path.is_file():
-        gpu_raw = gpu_evidence_path.read_bytes()
-        gpu_evidence_sha256 = hashlib.sha256(gpu_raw).hexdigest()
+            result = subprocess.run(command, stdin=subprocess.DEVNULL,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                    timeout=COLLECTION_TIMEOUT, check=False)
+        except subprocess.TimeoutExpired as error:
+            raise RuntimeError("Rust evidence collection timed out") from error
+        except OSError as error:
+            raise RuntimeError("Rust evidence collection could not start") from error
+        if result.returncode != 0:
+            raise RuntimeError(f"Rust evidence collection failed (exit {result.returncode})")
+        with output.open("rb") as stream:
+            raw = stream.read(MAX_EVIDENCE_BYTES + 1)
+        if not raw or len(raw) > MAX_EVIDENCE_BYTES:
+            raise RuntimeError("Rust evidence output is empty or oversized")
         try:
-            gpu_parsed = json.loads(gpu_raw.decode("utf-8"))
-        except ValueError:
-            gpu_parsed = None
-        gpu_tee = {
-            "present": True,
-            "verified": True,
-            "evidence_sha256": gpu_evidence_sha256,
-            "evidence": gpu_parsed,
-        }
-    else:
-        gpu_evidence_sha256 = NO_GPU_DIGEST
-        gpu_tee = {
-            "present": False,
-            "verified": False,
-            "evidence_sha256": gpu_evidence_sha256,
-            "evidence": None,
-        }
-
-    if model_manifest_path is None:
-        model_manifest_path = Path(
-            os.environ.get("NTRUST_MODEL_MANIFEST", "/etc/ntrust/model.json")
-        )
-    kernel_release = os.uname().release
-    model_bytes = (
-        model_manifest_path.read_bytes()
-        if model_manifest_path.is_file()
-        else b"{}"
-    )
-
-    value_x = compute_value_x(root=value_x_root)
-    source_hash = hashlib.sha384(model_bytes).digest()
-    artifact_hash = value_x
-    tpm_info = collect_tpm_pcrs(tpm_pcr_dir)
-
-    cvm_type = cvm if cvm is not None else detect_cvm()
-    if cvm_type == "sev-snp":
-        platform_id = PLATFORM_SEV_SNP
-    elif cvm_type == "tdx":
-        platform_id = PLATFORM_TDX
-    elif cvm_type == "nitro":
-        platform_id = PLATFORM_NITRO
-    else:
-        platform_id = PLATFORM_UNKNOWN
-
-    issued_at = int(iat if iat is not None else time.time())
-    report_data, aux_challenge = compute_uq_report_data_64(
-        value_x=value_x,
-        platform=platform_id,
-        tls_spki_hash=tls_spki_hash,
-        source_hash=source_hash,
-        artifact_hash=artifact_hash,
-        iat=issued_at,
-        eat_nonce=eat_nonce,
-        gpu_evidence_sha256=gpu_evidence_sha256,
-        pcr_composite_sha256=tpm_info["pcr_composite_sha256"],
-    )
-
-    if tsm_root is None:
-        tsm_root = Path(
-            os.environ.get("NTRUST_TSM_REPORT_DIR", "/sys/kernel/config/tsm/report")
-        )
-
-    if cvm_type in ("sev-snp", "tdx") and tsm_root.is_dir():
-        tsm_quote = collect_tsm_quote(report_data, tsm_root)
-        cpu_tee = {
-            "confidential": True,
-            "cvm": cvm_type,
-            "platform": platform_id,
-            "provider": tsm_quote["provider"],
-            "generation": tsm_quote["generation"],
-            "report_data_hex": report_data.hex(),
-            "quote_b64": tsm_quote["quote_b64"],
-        }
-    else:
-        # Never label a normal KVM or unquoted VM as confidential.
-        cpu_tee = {
-            "confidential": False,
-            "cvm": cvm_type,
-            "platform": platform_id,
-            "provider": "untrusted",
-            "generation": 0,
-            "report_data_hex": report_data.hex(),
-            "quote_b64": None,
-        }
-
-    return {
-        "version": EAT_VERSION,
-        "eat_profile": EAT_PROFILE,
-        "nonce": nonce_clean,
-        "iat": issued_at,
-        "value_x_hex": value_x.hex(),
-        "source_hash_hex": source_hash.hex(),
-        "artifact_hash_hex": artifact_hash.hex(),
-        "aux_challenge_hex": aux_challenge.hex(),
-        "tls_binding": {
-            "domain": domain,
-            "leaf_spki_sha256": leaf_spki_sha256,
-            "leaf_cert_sha256": leaf_cert_sha256,
-        },
-        "cpu_tee": cpu_tee,
-        "gpu_tee": gpu_tee,
-        "tpm": tpm_info,
-        "manifest": {
-            "kernel_release": kernel_release,
-            "model_manifest_sha256": hashlib.sha256(model_bytes).hexdigest(),
-            "value_x_sha384": value_x.hex(),
-        },
-    }
+            token = json.loads(raw)
+        except (ValueError, UnicodeError) as error:
+            raise RuntimeError("Rust collector returned malformed JSON") from error
+        if not isinstance(token, dict) or token.get("eat_profile") != EAT_PROFILE or token.get("binding_suite") != 2:
+            raise RuntimeError("Rust collector returned an unexpected composite receipt")
+        return token
 
 
 class AttestHandler(BaseHTTPRequestHandler):
     server_version = "ntrust-attest"
     sys_version = ""
 
-    def log_message(self, format, *args):
-        return  # Never log requests or client nonces
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(10)
+
+    def log_message(self, _format, *_args):
+        pass
 
     def do_GET(self):
         parsed = urlparse(self.path)
+        if parsed.fragment or any(len(self.headers.get_all(name, [])) > 1 for name in ("Host", "Content-Length", "Transfer-Encoding")) or not self.headers.get("Host"):
+            return self._send_json(400, {"error": "Ambiguous attestation request"})
         if parsed.path != "/v1/attest":
-            self._send_json(404, {"error": "Not found"})
-            return
-        qs = parse_qs(parsed.query, keep_blank_values=True)
-        nonce = (qs.get("nonce") or [self.headers.get("X-Ntrust-Nonce", "")])[0]
+            return self._send_json(404, {"error": "Not found"})
+        if len(self.path) > 256 or self.headers.get("Transfer-Encoding") or self.headers.get("Content-Length", "0") != "0":
+            return self._send_json(400, {"error": "Invalid attestation request"})
         try:
-            bundle = build_rats_evidence(nonce)
-        except ValueError as exc:
-            self._send_json(400, {"error": str(exc)})
-            return
+            query = parse_qs(parsed.query, keep_blank_values=True, strict_parsing=True)
+            if set(query) != {"nonce"} or len(query["nonce"]) != 1:
+                raise ValueError("exactly one nonce query parameter is required")
+            token = build_rats_evidence(query["nonce"][0])
+        except ValueError:
+            return self._send_json(400, {"error": "Invalid attestation request"})
         except Exception:
-            self._send_json(503, {"error": "Attestation evidence unavailable"})
-            return
-        self._send_json(
-            200,
-            bundle,
-            content_type=f'application/eat+json; profile="{EAT_PROFILE}"',
-        )
+            return self._send_json(503, {"error": "Rust attestation evidence unavailable"})
+        self._send_json(200, token)
 
-    def _send_json(self, status: int, payload: dict, content_type: str = "application/json"):
-        body = json.dumps(payload, sort_keys=True).encode("utf-8")
+    def _send_json(self, status: int, payload: dict):
+        body = json.dumps(payload, separators=(",", ":")).encode()
         self.send_response(status)
-        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(body)
+        self.close_connection = True
 
 
 def main():
-    host = os.environ.get("NTRUST_ATTEST_HOST", "127.0.0.1")
-    port = int(os.environ.get("NTRUST_ATTEST_PORT", "8082"))
-    httpd = HTTPServer((host, port), AttestHandler)
-    httpd.serve_forever()
+    require_pinned_uq()
+    # A local maintained TLS reverse proxy supplies the public endpoint.
+    HTTPServer(("127.0.0.1", 8082), AttestHandler).serve_forever()
 
 
 if __name__ == "__main__":

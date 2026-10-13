@@ -1,8 +1,11 @@
-.PHONY: kernel image export check check-host sbom scan
+.PHONY: kernel image export check check-host sbom scan uq
 
 check:
 	python3 -m unittest discover -s tests -v
 	shellcheck guest/gpu-ready guest/https-start guest/inference-ready guest/status image/*.sh tests/*.sh kernel/*.sh
+
+uq:
+	bash image/fetch-uq.sh
 
 kernel:
 	bash kernel/build.sh
@@ -13,7 +16,7 @@ check-host:
 	test -r /dev/kvm -a -w /dev/kvm
 
 # Run on the Linux build machine. Packer and QEMU/KVM are existing build tools.
-image: check-host build/image-key build/ntrust-kernel.deb build/ntrust-linux-headers.deb
+image: check-host uq build/image-key build/ntrust-kernel.deb build/ntrust-linux-headers.deb
 	packer init image/ntrust.pkr.hcl
 	packer build image/ntrust.pkr.hcl
 

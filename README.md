@@ -84,3 +84,5 @@ Use `sudo ntrust-status` for payload-free local diagnostics. Full HTTPS restarts
 | `docs/REMOTE-ATTESTATION.md` | Reserved follow-on scope for customer verification and sealing |
 
 Project code uses the MIT license. Upstream Python wheels, NVIDIA components, NGINX and Ubuntu retain their own licenses. Installed license files and package metadata are retained in the image; the public demonstration model includes its own license.
+
+Rust attestation source migration and exact release-pin requirements are described in [ATTESTATION.md](ATTESTATION.md). The new responder is not enabled by image installation; hardware acceptance remains pending.
