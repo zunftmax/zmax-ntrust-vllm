@@ -27,7 +27,7 @@ def load(name, path):
 
 
 server = load("attest_server", ROOT / "guest/attest-server")
-client = load("verify_client", ROOT / "client/verify-attestation.py")
+client = load("verify_client", ROOT / "client/ntrust/_attestation_transport.py")
 release = load("uq_release", ROOT / "image/uq-release.py")
 NONCE = "ab" * 32
 VALUE_X = "cd" * 48
@@ -48,6 +48,8 @@ class AdapterTests(unittest.TestCase):
                         "-subj", "/CN=localhost", "-days", "1"], check=True, capture_output=True)
         cls.cert = (path / "cert.der").read_bytes()
         cls.spki = subprocess.check_output(["openssl", "pkey", "-in", str(path / "key.pem"), "-pubout", "-outform", "DER"])
+        CPU_VERDICT["tls_spki_sha256"] = hashlib.sha256(cls.spki).hexdigest()
+        GPU_VERDICT["tls_spki_sha256"] = hashlib.sha256(cls.spki).hexdigest()
 
     @classmethod
     def tearDownClass(cls):
@@ -205,6 +207,22 @@ class AdapterTests(unittest.TestCase):
         with patch.object(client.subprocess, "run", side_effect=run):
             self.assertEqual(client.verify_rats_bundle(raw, **self.verifier_args()), GPU_VERDICT)
 
+    def test_verified_channel_pin_is_derived_from_observed_spki_after_rust_success(self):
+        forged = {**GPU_VERDICT, "tls_spki_sha256": "00" * 32}
+        def run(command, **kwargs):
+            kwargs["stdout"].write(json.dumps(forged).encode())
+            return subprocess.CompletedProcess(command, 0)
+        with patch.object(client.subprocess, "run", side_effect=run):
+            verdict = client.verify_rats_bundle(b"{}", **self.verifier_args())
+            self.assertEqual(verdict["tls_spki_sha256"], hashlib.sha256(self.spki).hexdigest())
+            self.assertNotEqual(verdict["tls_spki_sha256"], forged["tls_spki_sha256"])
+        def failed(command, **kwargs):
+            kwargs["stdout"].write(json.dumps(forged).encode())
+            return subprocess.CompletedProcess(command, 1)
+        with patch.object(client.subprocess, "run", side_effect=failed):
+            with self.assertRaises(RuntimeError):
+                client.verify_rats_bundle(b"{}", **self.verifier_args())
+
     def test_verifier_requires_independent_image_and_inventory_policy(self):
         for update in ({"expected_value_x": ""}, {"expected_measurement": ""}, {"gpu_policy": None},
                        {"cpu_only": True}, {"gpu_policy": self.work / "missing"}, {"uq_binary": self.work / "missing"}):
@@ -229,6 +247,108 @@ class AdapterTests(unittest.TestCase):
             return subprocess.CompletedProcess(command, 0)
         with patch.object(client.subprocess, "run", side_effect=run):
             client.verify_rats_bundle(b"{}", **self.verifier_args(platform="tdx", cpu_collateral=collateral, cpu_tcb_policy=self.policy))
+
+    def test_explicit_cpu_tpm_profiles_require_independent_matching_policies(self):
+        invalid = [
+            dict(platform="azure-snp-vtpm"), dict(platform="aws-snp-nitrotpm"),
+            dict(platform="azure-snp-vtpm", nitrotpm_policy=self.policy),
+            dict(platform="aws-snp-nitrotpm", azure_policy=self.policy),
+            dict(platform="tdx", azure_policy=self.policy), dict(nitrotpm_policy=self.policy),
+            dict(platform="azure-snp-vtpm", azure_policy=self.work / "missing"),
+            dict(platform="aws-snp-nitrotpm", nitrotpm_policy=self.work),
+        ]
+        for options in invalid:
+            with self.subTest(options=options), patch.object(client.socket, "create_connection") as network:
+                with self.assertRaises(ValueError):
+                    client.fetch_and_verify("https://example.com", expected_value_x=VALUE_X,
+                        expected_measurement=MEASUREMENT, gpu_policy=self.policy, uq_binary=self.binary,
+                        cpu_collateral=self.policy, cpu_tcb_policy=self.policy, **options)
+                network.assert_not_called()
+        for platform, key in [("azure-snp-vtpm", "azure_policy"), ("aws-snp-nitrotpm", "nitrotpm_policy")]:
+            with patch.object(client.subprocess, "run") as command:
+                with self.assertRaisesRegex(ValueError, "CPU collateral"):
+                    client.verify_rats_bundle(b"{}", **self.verifier_args(platform=platform, **{key: self.policy}))
+                command.assert_not_called()
+
+    def test_cpu_tpm_policy_paths_stay_local_and_required_appraisal_is_checked(self):
+        profiles = [("azure-snp-vtpm", "azure_policy", "--azure-policy", "azure_vtpm"),
+                    ("aws-snp-nitrotpm", "nitrotpm_policy", "--nitrotpm-policy", "nitrotpm")]
+        for platform, key, flag, check in profiles:
+            accepted = {**GPU_VERDICT, "checks": GPU_VERDICT["checks"] + [{"check": check, "passed": True}]}
+            def run(command, **kwargs):
+                self.assertEqual(command[command.index("--platform") + 1], platform)
+                self.assertEqual(command[command.index(flag) + 1], str(self.policy))
+                self.assertEqual(command[command.index("--cpu-collateral") + 1], str(self.policy))
+                self.assertEqual(command[command.index("--cpu-tcb-policy") + 1], str(self.policy))
+                kwargs["stdout"].write(json.dumps(accepted).encode())
+                return subprocess.CompletedProcess(command, 0)
+            stack, tls, connection, _factory = self.tls_context()
+            with self.subTest(platform=platform), stack, patch.object(client.subprocess, "run", side_effect=run):
+                self.assertEqual(client.fetch_and_verify("https://example.com", expected_value_x=VALUE_X,
+                    expected_measurement=MEASUREMENT, gpu_policy=self.policy, uq_binary=self.binary,
+                    platform=platform, cpu_collateral=self.policy, cpu_tcb_policy=self.policy,
+                    **{key: self.policy}), accepted)
+                self.assertIs(connection.sock, tls)
+                self.assertNotIn(str(self.policy), repr(connection.request.call_args))
+                self.assertRegex(connection.request.call_args.args[1], r"^/v1/attest\?nonce=[0-9a-f]{64}$")
+            def incomplete(command, **kwargs):
+                kwargs["stdout"].write(json.dumps(GPU_VERDICT).encode())
+                return subprocess.CompletedProcess(command, 0)
+            with patch.object(client.subprocess, "run", side_effect=incomplete):
+                with self.assertRaisesRegex(RuntimeError, "CPU/TPM profile"):
+                    client.verify_rats_bundle(b"{}", **self.verifier_args(platform=platform,
+                        cpu_collateral=self.policy, cpu_tcb_policy=self.policy, **{key: self.policy}))
+            argv = ["verify-attestation.py", "https://example.com", "--expected-value-x", VALUE_X,
+                    "--expected-measurement", MEASUREMENT, "--gpu-policy", str(self.policy),
+                    "--platform", platform, flag, str(self.policy), "--cpu-collateral", str(self.policy),
+                    "--cpu-tcb-policy", str(self.policy)]
+            with patch.object(client.sys, "argv", argv), patch.object(client, "fetch_and_verify", return_value=accepted) as fetch, patch("builtins.print"):
+                self.assertEqual(client.main(), 0)
+                self.assertEqual(fetch.call_args.kwargs[key], self.policy)
+                self.assertEqual(fetch.call_args.kwargs["platform"], platform)
+
+    def test_collector_cpu_profile_is_explicit_and_never_switches_after_failure(self):
+        for profile, pcrs in [("direct", None), ("azure-snp-vtpm", "0,2,7"), ("aws-snp-nitrotpm", None)]:
+            env = {"NTRUST_CPU_PROFILE": profile}
+            if pcrs is not None:
+                env["NTRUST_TPM_PCRS"] = pcrs
+            def run(command, **kwargs):
+                self.assertEqual(command[command.index("--cpu-profile") + 1], profile)
+                if pcrs is None:
+                    self.assertNotIn("--tpm-pcrs", command)
+                else:
+                    self.assertEqual(command[command.index("--tpm-pcrs") + 1], pcrs)
+                return subprocess.CompletedProcess(command, 1)
+            with self.subTest(profile=profile), self.collection_context(), patch.dict(os.environ, env), patch.object(server.subprocess, "run", side_effect=run) as command:
+                with self.assertRaisesRegex(RuntimeError, "collection failed"):
+                    server.build_rats_evidence(NONCE)
+                command.assert_called_once()
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(server._cpu_profile_arguments(), ["--cpu-profile", "direct"])
+
+    def test_collector_rejects_ambiguous_profile_pcr_and_log_configuration(self):
+        tpm = self.work / "tcg2.log"
+        tpm.write_bytes(b"test-only local log argument")
+        invalid = [{"NTRUST_CPU_PROFILE": "auto"}, {"NTRUST_CPU_PROFILE": ""},
+                   {"NTRUST_TPM_PCRS": "0"}, {"NTRUST_TPM_BOOT_LOG": str(tpm)},
+                   {"NTRUST_CPU_PROFILE": "azure-snp-vtpm"},
+                   {"NTRUST_CPU_PROFILE": "aws-snp-nitrotpm", "NTRUST_TPM_PCRS": "0"},
+                   {"NTRUST_CPU_PROFILE": "aws-snp-nitrotpm", "NTRUST_TDX_BOOT_LOG": str(tpm)},
+                   {"NTRUST_CPU_PROFILE": "aws-snp-nitrotpm", "NTRUST_TDX_RUNTIME_LOG": str(tpm)}]
+        for pcrs in ["", "0,0", "7,0", "16", "00", "0, 2", "-1", "0,"]:
+            invalid.append({"NTRUST_CPU_PROFILE": "azure-snp-vtpm", "NTRUST_TPM_PCRS": pcrs})
+        for env in invalid:
+            with self.subTest(env=env), patch.dict(os.environ, env, clear=True):
+                with self.assertRaises(RuntimeError):
+                    server._cpu_profile_arguments()
+        for profile in ("azure-snp-vtpm", "aws-snp-nitrotpm"):
+            env = {"NTRUST_CPU_PROFILE": profile, "NTRUST_TPM_BOOT_LOG": str(tpm)}
+            if profile == "azure-snp-vtpm":
+                env["NTRUST_TPM_PCRS"] = "0,2,7"
+            with patch.dict(os.environ, env, clear=True):
+                command = server._cpu_profile_arguments()
+                self.assertEqual(command[command.index("--boot-log") + 1], str(tpm))
+                self.assertNotIn("--runtime-log", command)
 
     def test_invalid_or_incomplete_rust_verdict_is_never_success(self):
         for verdict, code in ((GPU_VERDICT, 1), ({"verified": True}, 0), ({"valid": False}, 0),
@@ -340,8 +460,85 @@ class AdapterTests(unittest.TestCase):
         with stack, patch.object(client, "verify_rats_bundle") as verifier:
             with self.assertRaisesRegex(RuntimeError, "byte limit"):
                 client.fetch_and_verify("https://example.com", expected_value_x=VALUE_X,
-                                       expected_measurement=MEASUREMENT, gpu_policy=self.policy)
+                                       expected_measurement=MEASUREMENT, gpu_policy=self.policy, uq_binary=self.binary)
             verifier.assert_not_called()
+
+    def test_local_helper_and_prior_policy_are_checked_before_network(self):
+        helper = self.work / "uq-google-attestation"
+        helper.write_bytes(b"test-only helper marker")
+        helper.chmod(0o755)
+        empty = self.work / "empty"
+        empty.touch()
+        invalid = [
+            dict(google_boot_verifier=helper),
+            dict(google_boot_verifier=Path("relative-helper"), boot_policy=self.policy),
+            dict(google_boot_verifier=empty, boot_policy=self.policy),
+            dict(google_boot_verifier=self.work, boot_policy=self.policy),
+            dict(google_boot_verifier=self.policy, boot_policy=self.policy),
+            dict(prior_stage_policy=empty), dict(prior_stage_policy=self.work),
+            dict(prior_stage_policy=self.work / "missing"),
+        ]
+        for options in invalid:
+            with self.subTest(options=options), patch.object(client.socket, "create_connection") as network:
+                with self.assertRaises(ValueError):
+                    client.fetch_and_verify("https://example.com", expected_value_x=VALUE_X,
+                        expected_measurement=MEASUREMENT, gpu_policy=self.policy,
+                        uq_binary=self.binary, **options)
+                network.assert_not_called()
+        with patch.object(client, "MAX_VERDICT_BYTES", 1), patch.object(client.subprocess, "run") as command:
+            with self.assertRaises(ValueError):
+                client.verify_rats_bundle(b"{}", **self.verifier_args(prior_stage_policy=self.policy))
+            command.assert_not_called()
+
+    def test_local_helper_and_prior_policy_never_enter_remote_request(self):
+        helper = self.work / "uq-google-attestation"
+        helper.write_bytes(b"test-only helper marker")
+        helper.chmod(0o755)
+        def run(command, **kwargs):
+            self.assertEqual(command[command.index("--google-boot-verifier") + 1], str(helper))
+            self.assertEqual(command[command.index("--prior-stage-policy") + 1], str(self.policy))
+            self.assertEqual(command[command.index("--boot-policy") + 1], str(self.policy))
+            self.assertEqual(Path(command[2]).read_bytes(), b"{}")
+            kwargs["stdout"].write(json.dumps(GPU_VERDICT).encode())
+            return subprocess.CompletedProcess(command, 0)
+        stack, _tls, connection, _factory = self.tls_context()
+        with stack, patch.object(client.subprocess, "run", side_effect=run) as command:
+            client.fetch_and_verify("https://example.com", expected_value_x=VALUE_X,
+                expected_measurement=MEASUREMENT, gpu_policy=self.policy, uq_binary=self.binary,
+                google_boot_verifier=helper, boot_policy=self.policy, prior_stage_policy=self.policy)
+            command.assert_called_once()
+            self.assertRegex(connection.request.call_args.args[1], r"^/v1/attest\?nonce=[0-9a-f]{64}$")
+            self.assertNotIn("body", connection.request.call_args.kwargs)
+            self.assertNotIn(str(self.work), repr(connection.request.call_args))
+        argv = ["verify-attestation.py", "https://example.com", "--expected-value-x", VALUE_X,
+                "--expected-measurement", MEASUREMENT, "--gpu-policy", str(self.policy),
+                "--boot-policy", str(self.policy), "--google-boot-verifier", str(helper),
+                "--prior-stage-policy", str(self.policy)]
+        with patch.object(client.sys, "argv", argv), patch.object(client, "fetch_and_verify", return_value=GPU_VERDICT) as fetch, patch("builtins.print"):
+            self.assertEqual(client.main(), 0)
+            self.assertEqual(fetch.call_args.kwargs["google_boot_verifier"], helper)
+            self.assertEqual(fetch.call_args.kwargs["prior_stage_policy"], self.policy)
+
+    def test_runtime_log_requires_local_boot_log_and_forwards_to_collector(self):
+        boot, runtime = self.work / "boot.log", self.work / "runtime.log"
+        boot.write_bytes(b"test-only CCEL argument marker")
+        runtime.write_bytes(b"test-only AAEL argument marker")
+        def run(command, **_kwargs):
+            self.assertEqual(command[command.index("--boot-log") + 1], str(boot))
+            self.assertEqual(command[command.index("--runtime-log") + 1], str(runtime))
+            Path(command[command.index("--out") + 1]).write_text(json.dumps(COLLECTOR_OUTPUT))
+            return subprocess.CompletedProcess(command, 0)
+        with self.collection_context(), patch.dict(os.environ, {"NTRUST_TDX_BOOT_LOG": str(boot), "NTRUST_TDX_RUNTIME_LOG": str(runtime)}), patch.object(server.subprocess, "run", side_effect=run):
+            self.assertEqual(server.build_rats_evidence(NONCE), COLLECTOR_OUTPUT)
+        for env in ({"NTRUST_TDX_RUNTIME_LOG": str(runtime)},
+                    {"NTRUST_TDX_BOOT_LOG": str(boot), "NTRUST_TDX_RUNTIME_LOG": ""},
+                    {"NTRUST_TDX_BOOT_LOG": str(boot), "NTRUST_TDX_RUNTIME_LOG": "relative"},
+                    {"NTRUST_TDX_BOOT_LOG": str(boot), "NTRUST_TDX_RUNTIME_LOG": str(self.work)},
+                    {"NTRUST_TDX_BOOT_LOG": str(boot), "NTRUST_TDX_RUNTIME_LOG": str(self.work / "missing")}):
+            with self.subTest(env=env), self.collection_context(), patch.dict(os.environ, env), patch.object(server.subprocess, "run") as command:
+                with self.assertRaises(RuntimeError):
+                    server.build_rats_evidence(NONCE)
+                command.assert_not_called()
 
 
 class PackagingTests(unittest.TestCase):

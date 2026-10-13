@@ -7,8 +7,9 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from .attestation import AttestationVerifier
+from ._key_continuity import AttestedHTTPSConnection, verified_key_pin
 from .chat import Chat
-from .exceptions import APIConnectionError, APIError, AuthenticationError
+from .exceptions import APIConnectionError, APIError, AuthenticationError, AttestationError
 from .models import ModelInfo
 
 
@@ -22,6 +23,7 @@ class _HTTPClient:
         self.api_key = api_key
         self.cafile = cafile
         self.timeout = timeout
+        self._attestation_check = None
 
         parsed = urlparse(self.base_url)
         self.scheme = parsed.scheme
@@ -45,12 +47,32 @@ class _HTTPClient:
         return headers
 
     def _create_connection(self) -> http.client.HTTPConnection:
+        # A fresh challenge is verified for every request, including streams.
+        # Failure never selects the ordinary unverified connection path.
+        if self._attestation_check is not None:
+            if self.scheme != "https":
+                raise AttestationError("Attested requests require HTTPS")
+            verdict = self._attestation_check()
+            conn = AttestedHTTPSConnection(self.host, self.port, context=self._ssl_ctx,
+                timeout=self.timeout, expected_pin=verified_key_pin(verdict))
+            try:
+                conn.connect()
+            except (http.client.HTTPException, OSError) as exc:
+                conn.close()
+                raise APIConnectionError(f"Attested TLS connection failed: {exc}") from exc
+            return conn
         try:
             if self.scheme == "https":
                 return http.client.HTTPSConnection(self.host, self.port, context=self._ssl_ctx, timeout=self.timeout)
             return http.client.HTTPConnection(self.host, self.port, timeout=self.timeout)
         except Exception as exc:
             raise APIConnectionError(f"Failed to initialize connection to {self.host}:{self.port}: {exc}") from exc
+
+    def require_attestation(self, check):
+        """One-way transition: all subsequent requests require fresh appraisal."""
+        if not callable(check):
+            raise AttestationError("A required attestation verifier cannot be removed")
+        self._attestation_check = check
 
     def get_json(self, path: str) -> Tuple[int, Dict[str, str], bytes]:
         conn = self._create_connection()
@@ -138,7 +160,16 @@ class ConfidentialClient:
                  gpu_policy: Optional[str] = None,
                  cpu_only: bool = False,
                  cafile: Optional[str] = None,
-                 timeout: float = 60.0):
+                 timeout: float = 60.0, *,
+                 uq_binary: Optional[str] = None,
+                 boot_policy: Optional[str] = None, uki: Optional[str] = None,
+                 google_boot_verifier: Optional[str] = None,
+                 prior_stage_policy: Optional[str] = None,
+                 platform: Optional[str] = None,
+                 cpu_collateral: Optional[str] = None,
+                 cpu_tcb_policy: Optional[str] = None,
+                 azure_policy: Optional[str] = None,
+                 nitrotpm_policy: Optional[str] = None):
         self.base_url = base_url or os.environ.get("NTRUST_BASE_URL", "https://localhost:443")
         self.api_key = api_key or os.environ.get("NTRUST_API_KEY")
         self.cafile = cafile or os.environ.get("NTRUST_CA_FILE")
@@ -154,18 +185,29 @@ class ConfidentialClient:
             cpu_only=cpu_only,
             cafile=self.cafile,
             timeout=timeout,
+            uq_binary=uq_binary, boot_policy=boot_policy, uki=uki,
+            google_boot_verifier=google_boot_verifier, prior_stage_policy=prior_stage_policy,
+            platform=platform, cpu_collateral=cpu_collateral, cpu_tcb_policy=cpu_tcb_policy,
+            azure_policy=azure_policy, nitrotpm_policy=nitrotpm_policy,
         )
 
         self._attestation_verdict: Optional[dict] = None
         if verify_attestation:
-            self._attestation_verdict = self.attestation.verify(self.base_url)
+            self.verify_attestation()
 
     @property
     def attestation_verdict(self) -> Optional[dict]:
-        """Returns the attestation verdict from the pre-flight check, if executed."""
+        """Latest successful verification; never reused to authorize a request."""
         return self._attestation_verdict
 
     def verify_attestation(self) -> dict:
-        """Explicitly run hardware attestation verification against the endpoint."""
-        self._attestation_verdict = self.attestation.verify(self.base_url)
+        """Enable per-request appraisal, then verify now. Failure keeps it enabled."""
+        self._http.require_attestation(self._verify_request_attestation)
+        return self._verify_request_attestation()
+
+    def _verify_request_attestation(self) -> dict:
+        self._attestation_verdict = None
+        verdict = self.attestation.verify(self.base_url)
+        verified_key_pin(verdict)
+        self._attestation_verdict = verdict
         return self._attestation_verdict

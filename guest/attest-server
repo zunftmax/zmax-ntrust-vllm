@@ -174,6 +174,43 @@ def fetch_live_tls_cert_der(domain: str, port: int = 443) -> bytes:
             return cert
 
 
+def _cpu_profile_arguments() -> list[str]:
+    """Forward only an explicitly configured CPU profile; never auto-switch."""
+    profile = os.environ.get("NTRUST_CPU_PROFILE", "direct")
+    if profile not in ("direct", "azure-snp-vtpm", "aws-snp-nitrotpm"):
+        raise RuntimeError("NTRUST_CPU_PROFILE must be direct, azure-snp-vtpm or aws-snp-nitrotpm")
+    args = ["--cpu-profile", profile]
+    indices = os.environ.get("NTRUST_TPM_PCRS")
+    if profile == "azure-snp-vtpm":
+        if indices is None or not re.fullmatch(r"(?:0|[1-9][0-9]?)(?:,(?:0|[1-9][0-9]?))*", indices):
+            raise RuntimeError("Azure collection requires explicit NTRUST_TPM_PCRS CSV")
+        parsed = [int(index) for index in indices.split(",")]
+        if len(parsed) > 16 or any(index > 15 for index in parsed) or parsed != sorted(set(parsed)):
+            raise RuntimeError("NTRUST_TPM_PCRS must contain sorted unique PCR indices 0..15")
+        args.extend(["--tpm-pcrs", indices])
+    elif indices is not None:
+        raise RuntimeError("NTRUST_TPM_PCRS is only supported for Azure collection")
+    tdx_log = os.environ.get("NTRUST_TDX_BOOT_LOG")
+    runtime_log = os.environ.get("NTRUST_TDX_RUNTIME_LOG")
+    tpm_log = os.environ.get("NTRUST_TPM_BOOT_LOG")
+    if profile != "direct" and (tdx_log is not None or runtime_log is not None):
+        raise RuntimeError("NTRUST_TDX_BOOT_LOG and NTRUST_TDX_RUNTIME_LOG require the direct TDX profile")
+    if profile == "direct" and tpm_log is not None:
+        raise RuntimeError("NTRUST_TPM_BOOT_LOG requires an explicit CPU/TPM profile")
+    if runtime_log is not None and (not runtime_log or not tdx_log):
+        raise RuntimeError("NTRUST_TDX_RUNTIME_LOG requires NTRUST_TDX_BOOT_LOG")
+    for variable, value, flag in (("NTRUST_TDX_BOOT_LOG", tdx_log, "--boot-log"),
+                                  ("NTRUST_TDX_RUNTIME_LOG", runtime_log, "--runtime-log"),
+                                  ("NTRUST_TPM_BOOT_LOG", tpm_log, "--boot-log")):
+        if value is not None:
+            if not value or not Path(value).is_absolute() or not Path(value).is_file():
+                raise RuntimeError(f"{variable} must name an absolute regular file")
+            # sysfs stat size can be zero. Rust performs the bounded read and
+            # parses the log under the explicit CPU profile.
+            args.extend([flag, value])
+    return args
+
+
 def build_rats_evidence(nonce_hex: str) -> dict:
     """Return raw Rust EAT JSON, or fail; never construct a substitute receipt."""
     if not NONCE_RE.fullmatch(nonce_hex):
@@ -184,6 +221,7 @@ def build_rats_evidence(nonce_hex: str) -> dict:
     domain = os.environ.get("NTRUST_DOMAIN", "")
     if not domain:
         raise RuntimeError("NTRUST_DOMAIN is required")
+    cpu_arguments = _cpu_profile_arguments()
     require_pinned_uq()
     spki = extract_spki_der(fetch_live_tls_cert_der(domain))
     value_x = compute_value_x().hex()
@@ -197,17 +235,12 @@ def build_rats_evidence(nonce_hex: str) -> dict:
         spki_path.write_bytes(spki)
         command = [str(UQ_BINARY), "collect", "--nonce", nonce_hex,
                    "--tls-spki", str(spki_path), "--value-x", value_x,
-                   "--out", str(output), "--format", "json"]
+                   "--out", str(output), "--format", "json"] + cpu_arguments
         if mode == "gpu":
             topology = os.environ.get("NTRUST_GPU_TOPOLOGY", "auto")
             if topology not in ("auto", "independent", "ppcie"):
                 raise RuntimeError("Invalid NTRUST_GPU_TOPOLOGY")
             command.extend(["--gpu", "--topology", topology])
-        boot_log = os.environ.get("NTRUST_TDX_BOOT_LOG")
-        if boot_log:
-            if not Path(boot_log).is_absolute():
-                raise RuntimeError("NTRUST_TDX_BOOT_LOG must be an absolute path")
-            command.extend(["--boot-log", boot_log])
         try:
             result = subprocess.run(command, stdin=subprocess.DEVNULL,
                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
