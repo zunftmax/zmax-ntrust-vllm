@@ -1,0 +1,8 @@
+location            = "eastus2"
+resource_group_name = "rg-ntrust-inference"
+vm_name             = "ntrust-vllm-prod"
+operator_cidr       = "203.0.113.45/32"  # Set to your specific office/bastion IP CIDR
+ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+image_id            = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-images/providers/Microsoft.Compute/galleries/zmax_gallery/images/ntrust-vllm/versions/0.1.0"
+cloud_init_path     = "./cloud-init.yaml"
+dns_label           = "zmax-confidential-llm"

@@ -1,0 +1,8 @@
+project_id      = "my-gcp-project"
+region          = "us-central1"
+zone            = "us-central1-a"
+instance_name   = "ntrust-vllm-spot"
+image           = "projects/zmax-ntrust/global/images/ntrust-vllm-0-1-0"
+operator_cidr   = "203.0.113.45/32"
+cloud_init_path = "./cloud-init.yaml"
+spot_instance   = true

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ntrust"
+version = "0.1.0"
+description = "Python client SDK for Ntrust Confidential GPU Inference VMs"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Zmax Team", email = "agents@outbox.sh"}
+]
+keywords = ["confidential-computing", "vllm", "sglang", "attestation", "nvidia", "h100"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+dependencies = []
+
+[project.scripts]
+ntrust = "ntrust.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ntrust*"]
