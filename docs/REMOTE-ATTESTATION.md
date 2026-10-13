@@ -1,26 +1,27 @@
-# Remote Attestation (`GET /v1/attest` — IETF RATS over WebPKI TLS 1.3)
+# Remote Attestation (`GET /v1/attest` — `unified-quote` `https://uq.secure.build/eat/v2`)
 
-The guest serves an **IETF RATS (RFC 9334 / RFC 9711 EAT)** composite evidence endpoint at `GET /v1/attest?nonce=<64-hex>` while keeping standard Let's Encrypt **TLS-ALPN-01** certificates in guest RAM so unmodified OpenAI SDKs, browsers, and `curl` work without custom TLS libraries.
+The guest serves a [`maceip/unified-quote`](https://github.com/maceip/unified-quote)-compatible EAT (`eat_profile: "https://uq.secure.build/eat/v2"`, `version: 2`) attestation endpoint at `GET /v1/attest?nonce=<64-hex>` while keeping Let's Encrypt **TLS-ALPN-01** certificates in guest RAM so unmodified OpenAI SDKs, browsers, and `curl` work out of the box.
 
-## How It Works
+## How the Disk Image, Kernel, GPU, and TLS Key Are Bound
 
-1. **In-Guest RATS Responder ([`guest/attest-server`](../guest/attest-server) & [`guest/systemd/ntrust-attest.service`](../guest/systemd/ntrust-attest.service)):**
-   - Listens on `127.0.0.1:8082` behind the exact NGINX route `location = /v1/attest` in [`guest/nginx.conf.template`](../guest/nginx.conf.template).
-   - Reads the active Let's Encrypt TLS 1.3 certificate served by NGINX and extracts its DER-encoded `SubjectPublicKeyInfo` (`leaf_spki_sha256`).
-   - Reads the verified in-RAM NVIDIA GPU SPDM attestation report (`/run/ntrust-gpu/attestation.json` or `/run/ntrust-tee/attestation.json`) and computes `gpu_evidence_sha256`.
-   - Computes the 64-byte hardware `REPORT_DATA`:
-     $$\text{REPORT\_DATA} = \text{SHA-512}\big(\text{"ntrust-rats-v1:"} \parallel \text{nonce} \parallel \text{":"} \parallel \text{leaf\_spki\_sha256} \parallel \text{":"} \parallel \text{gpu\_evidence\_sha256} \parallel \text{":"} \parallel \text{manifest\_sha256}\big)$$
-   - Requests a hardware-signed CPU TEE quote via Linux `ConfigFS-TSM` (`/sys/kernel/config/tsm/report`, enabled by `CONFIG_SEV_GUEST=y` and `CONFIG_TDX_GUEST_DRIVER=y` in [`kernel/required.config`](../kernel/required.config)).
-   - Never labels an ordinary KVM VM (`CVM=none`) as confidential (`cpu_tee.confidential = false`, `quote_b64 = null`).
+1. **Deterministic Disk Image Tree Measurement (`Value X` — 48-byte SHA-384):**
+   - Both at image build time (`/usr/share/doc/ntrust/value_x.sha384` exported to `dist/value_x.sha384`) and at runtime in [`guest/attest-server`](../guest/attest-server), `compute_value_x()` computes the deterministic 48-byte `SHA-384` tree hash (`relative_path:` + raw 48B `SHA-384` + `\n`, matching `v2/src/value_x.rs` in `maceip/unified-quote`) over the guest's kernel (`vmlinuz-7.2.10-ntrust`, `config-7.2.10-ntrust`), admission scripts, systemd units, NGINX template, `model.json`, and Python wheel hash lockfile (`requirements.lock`).
+   - Because [`kernel/build.sh`](../kernel/build.sh) clamps `SOURCE_DATE_EPOCH`, `KBUILD_BUILD_TIMESTAMP`, `KBUILD_BUILD_USER`, `KBUILD_BUILD_HOST`, and `KBUILD_BUILD_VERSION`, any user who forks the repo and builds the image gets the exact same `value_x_hex` (`artifact_hash_hex`) regardless of per-instance `cloud-init` settings (`/etc/machine-id` or `/etc/ntrust/runtime.env`).
 
-2. **Customer Verifier CLI ([`client/verify-attestation.py`](../client/verify-attestation.py)):**
+2. **Boot-Time Kernel & Disk Measurement on Intel TDX and AMD SEV-SNP:**
+   - **Intel TDX:** The hardware quote (`TD Quote v4` via `/sys/kernel/config/tsm/report`) carries `MRTD` (`0xB8..0xE8`, OVMF firmware) and all four Runtime Measurement Registers `RTMR0..3` (`0x148..0x208`, covering UEFI state, GRUB, `vmlinuz-7.2.10-ntrust`, and kernel cmdline).
+   - **AMD SEV-SNP (GCP, Azure HCL vTPM, AWS NitroTPM):** With `CONFIG_TCG_TPM=y`, `CONFIG_TCG_TIS=y`, and `CONFIG_TCG_CRB=y` built into `7.2.10-ntrust`, the guest reads `/sys/class/tpm/tpm0/pcr-sha256/{0..9}` (covering UEFI, GRUB, `vmlinuz-7.2.10-ntrust`, and kernel cmdline) and supports Azure's HCL vTPM report (`0x01400001`).
+
+3. **Canonical `unified-quote` 64-Byte Hardware `REPORT_DATA` Layout:**
+   - **`report_data[0..32]` (`EatToken::binding_bytes_v2`):**
+     $$\text{SHA-256}\big(\text{version} \parallel \text{len(profile)} \parallel \text{profile} \parallel \text{value\_x}_{48} \parallel \text{platform}_{1} \parallel \text{tls\_spki\_sha256}_{32} \parallel \text{source\_hash}_{48} \parallel \text{artifact\_hash}_{48} \parallel \text{iat}_{8} \parallel \text{eat\_nonce}_{32} \parallel 0^{32}\big)$$
+   - **`report_data[32..64]` (`EatToken::second_commitment`):**
+     $$\text{SHA-256}\big(\text{"uq/eat/report-data-2\textbackslash 0"} \parallel \text{SHA-256}(\text{gpu\_evidence\_sha256} \parallel \text{tpm\_pcr\_composite\_sha256}) \parallel \text{value\_x}[0..32]\big)$$
+
+4. **Customer Verifier CLI ([`client/verify-attestation.py`](../client/verify-attestation.py)):**
    ```bash
-   python3 client/verify-attestation.py https://inference.example.com
+   python3 client/verify-attestation.py https://inference.example.com \
+     --expected-value-x "$(cat dist/value_x.sha384)"
    ```
-   - Opens a TLS 1.3 connection, extracts the peer certificate's `SubjectPublicKeyInfo` (`SPKI`) directly from the active socket, sends a fresh 32-byte random `nonce` to `GET /v1/attest?nonce=<nonce>`, and verifies:
-     - `leaf_spki_sha256` matches the live TLS socket's certificate public key (defeating DNS/ACME relay and MITM attacks).
-     - `nonce` matches the client's fresh challenge.
-     - The binary AMD SEV-SNP (`attestation_report` offset `0x50..0x90`, `VMPL == 0`, `DEBUG == 0`) or Intel TDX (`TD Quote v4` offset `0x238..0x278`, `DEBUG == 0`) hardware quote contains the exact recomputed 64-byte `REPORT_DATA`.
-     - `gpu_tee.verified` is `true` (unless `--no-gpu` is explicitly passed on CPU-only `dev` or `relay` paths).
 
-See [ATTESTATION-RESEARCH.md](ATTESTATION-RESEARCH.md) for the protocol comparison of **IETF RATS vs. RA-TLS**, hardware quote layouts, and **Azure / GCP Marketplace** publication prerequisites.
+See [ATTESTATION-RESEARCH.md](ATTESTATION-RESEARCH.md) for the full multi-cloud (`unified-quote` + `tamayo`) architecture and **Azure / GCP Marketplace** publication steps.

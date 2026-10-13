@@ -34,5 +34,6 @@ print('PASS: no PEM/OpenSSH private key headers in regular files <=10 MiB under 
 print('PASS: machine ID reset; root/password SSH disabled.')
 PY
 sudo -n cp "$root/usr/share/doc/ntrust/packages.tsv" dist/packages.tsv
-sudo -n chown "$(id -u):$(id -g)" dist/packages.tsv
+sudo -n cp "$root/usr/share/doc/ntrust/value_x.sha384" dist/value_x.sha384
+sudo -n chown "$(id -u):$(id -g)" dist/packages.tsv dist/value_x.sha384
 sudo -n du -sx --block-size=1 "$root"

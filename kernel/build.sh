@@ -10,6 +10,11 @@ work=$(realpath "$work")
 mkdir -p "$work"/{sources,build,artifacts,evidence}
 version=7.2.10
 nvidia_version=580.178.04
+export LC_ALL=C TZ=UTC SOURCE_DATE_EPOCH=1760000000
+export KBUILD_BUILD_TIMESTAMP="1970-01-01 00:00:00 UTC"
+export KBUILD_BUILD_USER=ntrust
+export KBUILD_BUILD_HOST=ntrust
+export KBUILD_BUILD_VERSION=1
 src="$work/sources/linux-$version"
 obj="$work/build/linux"
 nvsrc="$work/sources/open-gpu-kernel-modules-$nvidia_version"

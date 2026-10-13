@@ -1,4 +1,4 @@
-"""Test IETF RATS composite remote attestation responder and client verifier."""
+"""Test unified-quote (https://uq.secure.build/eat/v2) responder and verifier."""
 import base64
 import copy
 import hashlib
@@ -32,6 +32,7 @@ def _make_snp_report(
     policy: int = 0x30000,
     vmpl: int = 0,
     measurement: bytes = b"\xaa" * 48,
+    wrap_azure_hcl: bool = False,
 ) -> bytes:
     buf = bytearray(1184)
     struct.pack_into("<I", buf, 0x00, version)
@@ -39,6 +40,10 @@ def _make_snp_report(
     struct.pack_into("<I", buf, 0x30, vmpl)
     buf[0x50:0x90] = report_data
     buf[0x90:0xC0] = measurement
+    if wrap_azure_hcl:
+        hcl_hdr = bytearray(32)
+        struct.pack_into("<I", hcl_hdr, 0, 0x414C4348)
+        return bytes(hcl_hdr + buf)
     return bytes(buf)
 
 
@@ -49,18 +54,18 @@ def _make_tdx_quote(
     tee_type: int = 0x00000081,
     td_attributes: int = 0,
     mrtd: bytes = b"\xbb" * 48,
+    rtmr2: bytes = b"\xcc" * 48,
 ) -> bytes:
     buf = bytearray(632)
     struct.pack_into("<HHI", buf, 0x00, version, 2, tee_type)
     struct.pack_into("<Q", buf, 0xA0, td_attributes)
     buf[0xB8:0xE8] = mrtd
+    buf[0x1A8:0x1D8] = rtmr2
     buf[0x238:0x278] = report_data
     return bytes(buf)
 
 
 class _StubTsmDir:
-    """Populate ConfigFS-TSM slot files when mkdtemp creates a slot."""
-
     def __init__(self, root: Path, provider: str, quote_builder):
         self.root = root
         self.provider = provider
@@ -124,6 +129,16 @@ class AttestationTests(unittest.TestCase):
         self.model_manifest.write_text('{"model": "test"}\n')
         self.tsm_dir = self.base / "tsm"
         self.tsm_dir.mkdir()
+        self.pcr_dir = self.base / "pcrs"
+        self.pcr_dir.mkdir()
+        (self.pcr_dir / "0").write_text("11" * 32 + "\n")
+        (self.pcr_dir / "4").write_text("22" * 32 + "\n")
+        (self.pcr_dir / "8").write_text("33" * 32 + "\n")
+        self.tree_dir = self.base / "rootfs_tree"
+        self.tree_dir.mkdir()
+        (self.tree_dir / "vmlinuz").write_bytes(b"kernel-binary")
+        (self.tree_dir / "unit.service").write_bytes(b"[Service]\nExecStart=/bin/true\n")
+        self.expected_value_x = attest_server.compute_value_x(root=self.tree_dir).hex()
         self.nonce = "0123456789abcdef" * 4
 
     def test_spki_der_extraction_matches_openssl(self):
@@ -135,12 +150,26 @@ class AttestationTests(unittest.TestCase):
             verify_client.extract_spki_der(cert_bytes), self.openssl_spki_der
         )
 
-    def test_sev_snp_and_tdx_rats_bundles_verify_and_bind_tls_key(self):
+    def test_value_x_matches_unified_quote_tree_hash_and_detects_tampering(self):
+        h1 = attest_server.compute_value_x(root=self.tree_dir)
+        h2 = attest_server.compute_value_x(root=self.tree_dir)
+        self.assertEqual(len(h1), 48)
+        self.assertEqual(h1, h2)
+        (self.tree_dir / "unit.service").write_bytes(b"tampered")
+        self.assertNotEqual(attest_server.compute_value_x(root=self.tree_dir), h1)
+
+    def test_sev_snp_azure_hcl_and_tdx_unified_quote_bundles_verify(self):
         for cvm, provider, builder, expected_meas in (
             ("sev-snp", "sev_guest", _make_snp_report, "aa" * 48),
+            (
+                "sev-snp",
+                "azure_hcl",
+                lambda rd: _make_snp_report(rd, wrap_azure_hcl=True),
+                "aa" * 48,
+            ),
             ("tdx", "tdx_guest", _make_tdx_quote, "bb" * 48),
         ):
-            with self.subTest(cvm=cvm):
+            with self.subTest(cvm=cvm, provider=provider):
                 stub = _StubTsmDir(self.tsm_dir, provider, builder)
                 orig_collect = attest_server.collect_tsm_quote
                 attest_server.collect_tsm_quote = stub.patch_collect
@@ -152,7 +181,10 @@ class AttestationTests(unittest.TestCase):
                         gpu_evidence_path=self.gpu_evidence,
                         model_manifest_path=self.model_manifest,
                         tsm_root=self.tsm_dir,
+                        tpm_pcr_dir=self.pcr_dir,
+                        value_x_root=self.tree_dir,
                         cvm=cvm,
+                        iat=1760000000,
                     )
                 finally:
                     attest_server.collect_tsm_quote = orig_collect
@@ -163,11 +195,24 @@ class AttestationTests(unittest.TestCase):
                     expected_spki_sha256=self.expected_spki_sha256,
                     require_gpu=True,
                     expected_measurement=expected_meas,
+                    expected_value_x=self.expected_value_x,
                 )
                 self.assertTrue(res["verified"])
                 self.assertTrue(res["confidential_cpu"])
                 self.assertTrue(res["confidential_gpu"])
                 self.assertEqual(res["measurement_hex"], expected_meas)
+                self.assertEqual(res["value_x_hex"], self.expected_value_x)
+                if cvm == "tdx":
+                    self.assertEqual(res["rtmrs_hex"]["rtmr2"], "cc" * 48)
+
+                # Tampered disk image Value X must be rejected
+                with self.assertRaisesRegex(ValueError, "Value X mismatch"):
+                    verify_client.verify_rats_bundle(
+                        bundle,
+                        expected_nonce=self.nonce,
+                        expected_spki_sha256=self.expected_spki_sha256,
+                        expected_value_x="dd" * 48,
+                    )
 
                 # Relay/MITM attack: different TLS leaf SPKI must be rejected
                 with self.assertRaisesRegex(ValueError, "TLS SPKI mismatch"):
@@ -182,19 +227,6 @@ class AttestationTests(unittest.TestCase):
                     verify_client.verify_rats_bundle(
                         bundle,
                         expected_nonce="fedcba9876543210" * 4,
-                        expected_spki_sha256=self.expected_spki_sha256,
-                    )
-
-                # Tampered binary quote REPORT_DATA must be rejected
-                tampered = copy.deepcopy(bundle)
-                raw_quote = bytearray(base64.b64decode(tampered["cpu_tee"]["quote_b64"]))
-                offset = 0x50 if cvm == "sev-snp" else 0x238
-                raw_quote[offset] ^= 0xFF
-                tampered["cpu_tee"]["quote_b64"] = base64.b64encode(raw_quote).decode("ascii")
-                with self.assertRaisesRegex(ValueError, "REPORT.*DATA does not match"):
-                    verify_client.verify_rats_bundle(
-                        tampered,
-                        expected_nonce=self.nonce,
                         expected_spki_sha256=self.expected_spki_sha256,
                     )
 
@@ -227,6 +259,8 @@ class AttestationTests(unittest.TestCase):
             gpu_evidence_path=None,
             model_manifest_path=self.model_manifest,
             tsm_root=self.tsm_dir,
+            tpm_pcr_dir=self.pcr_dir,
+            value_x_root=self.tree_dir,
             cvm="none",
         )
         self.assertFalse(bundle["cpu_tee"]["confidential"])

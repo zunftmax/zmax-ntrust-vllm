@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Customer verifier for ntrust IETF RATS composite remote attestation.
+"""Customer verifier for ntrust unified-quote (https://uq.secure.build/eat/v2) attestation.
 
 Connects over TLS 1.3, extracts the live server certificate's SubjectPublicKeyInfo
 (SPKI) directly from the TLS socket, sends a fresh 32-byte nonce to GET /v1/attest,
-and verifies that the AMD SEV-SNP or Intel TDX hardware quote and NVIDIA GPU
-attestation evidence are cryptographically bound to that exact TLS public key.
+and verifies:
+  1. EatToken::binding_bytes_v2() in hardware report_data[0..32]
+  2. EatToken::second_commitment(sha256(gpu || tpm_pcrs)) in report_data[32..64]
+  3. Value X (48-byte SHA-384 deterministic disk image tree measurement)
+  4. AMD SEV-SNP (VMPL 0, DEBUG=0, vTPM PCRs) and Intel TDX (MRTD + RTMR 0..3, DEBUG=0)
+  5. NVIDIA GPU SPDM attestation readiness
 """
 import argparse
 import base64
@@ -19,8 +23,11 @@ import struct
 import sys
 from urllib.parse import urlparse
 
-PROFILE = "urn:ietf:params:rats:ntrust-composite-v1"
+EAT_VERSION = 2
+EAT_PROFILE = "https://uq.secure.build/eat/v2"
+SECOND_COMMITMENT_DOMAIN = b"uq/eat/report-data-2\0"
 NONCE_RE = re.compile(r"^[0-9a-f]{64}$")
+SHA384_RE = re.compile(r"^[0-9a-f]{96}$")
 
 # AMD SEV-SNP attestation_report offsets (ABI Specification rev 1.55, Table 22)
 SNP_MIN_REPORT_LEN = 1184
@@ -30,14 +37,20 @@ SNP_POLICY_DEBUG_BIT = 1 << 19
 SNP_OFFSET_VMPL = 0x30
 SNP_OFFSET_REPORT_DATA = 0x50
 SNP_OFFSET_MEASUREMENT = 0x90
+HCL_MAGIC = 0x414C4348
+HCL_SNP_OFFSET = 0x20
 
 # Intel TDX Quote v4 offsets (Header 48B + TD Quote Body 584B)
 TDX_MIN_QUOTE_LEN = 632
 TDX_TEE_TYPE = 0x00000081
-TDX_OFFSET_ATTRIBUTES = 0x30 + 0x70  # 0xA0
+TDX_OFFSET_ATTRIBUTES = 0x30 + 0x70   # 0xA0
 TDX_ATTR_DEBUG_BIT = 1 << 0
-TDX_OFFSET_MRTD = 0x30 + 0x88        # 0xB8
-TDX_OFFSET_REPORT_DATA = 0x30 + 0x208  # 0x238
+TDX_OFFSET_MRTD = 0x30 + 0x88         # 0xB8 (48B)
+TDX_OFFSET_RTMR0 = 0x30 + 0x118       # 0x148 (48B)
+TDX_OFFSET_RTMR1 = 0x30 + 0x148       # 0x178 (48B)
+TDX_OFFSET_RTMR2 = 0x30 + 0x178       # 0x1A8 (48B)
+TDX_OFFSET_RTMR3 = 0x30 + 0x1A8       # 0x1D8 (48B)
+TDX_OFFSET_REPORT_DATA = 0x30 + 0x208  # 0x238 (64B)
 
 
 def _read_asn1_tlv(data: bytes, offset: int) -> tuple[int, int, int, int]:
@@ -84,16 +97,42 @@ def extract_spki_der(cert_der: bytes) -> bytes:
 
 
 def compute_expected_report_data(
-    nonce_hex: str,
-    leaf_spki_sha256: str,
+    *,
+    value_x: bytes,
+    platform: int,
+    tls_spki_hash: bytes,
+    source_hash: bytes,
+    artifact_hash: bytes,
+    iat: int,
+    eat_nonce: bytes,
     gpu_evidence_sha256: str,
-    manifest_sha256: str,
+    pcr_composite_sha256: str,
 ) -> bytes:
-    binding = (
-        f"ntrust-rats-v1:{nonce_hex}:{leaf_spki_sha256}:"
-        f"{gpu_evidence_sha256}:{manifest_sha256}"
-    ).encode("ascii")
-    return hashlib.sha512(binding).digest()
+    """Recompute unified-quote 64-byte report_data (binding_bytes_v2 || second_commitment)."""
+    h1 = hashlib.sha256()
+    h1.update(struct.pack(">I", EAT_VERSION))
+    profile_bytes = EAT_PROFILE.encode("ascii")
+    h1.update(struct.pack(">I", len(profile_bytes)))
+    h1.update(profile_bytes)
+    h1.update(value_x)
+    h1.update(bytes([platform]))
+    h1.update(tls_spki_hash)
+    h1.update(source_hash)
+    h1.update(artifact_hash)
+    h1.update(struct.pack(">Q", iat))
+    h1.update(eat_nonce)
+    h1.update(b"\x00" * 32)
+    lower_32 = h1.digest()
+
+    aux_challenge = hashlib.sha256(
+        f"ntrust-aux-v2:{gpu_evidence_sha256}:{pcr_composite_sha256}".encode("ascii")
+    ).digest()
+    h2 = hashlib.sha256()
+    h2.update(SECOND_COMMITMENT_DOMAIN)
+    h2.update(aux_challenge)
+    h2.update(value_x[:32])
+    upper_32 = h2.digest()
+    return lower_32 + upper_32
 
 
 def parse_and_verify_cpu_quote(
@@ -101,8 +140,13 @@ def parse_and_verify_cpu_quote(
     quote_bytes: bytes,
     expected_report_data: bytes,
 ) -> dict:
-    """Verify binary hardware quote invariants and REPORT_DATA binding."""
-    if provider in ("sev_guest", "sev-snp"):
+    """Verify binary hardware quote invariants, RTMRs, and REPORT_DATA binding."""
+    if provider in ("sev_guest", "sev-snp", "azure_hcl"):
+        # Unwrap Azure HCL vTPM header if present
+        if len(quote_bytes) >= HCL_SNP_OFFSET + SNP_MIN_REPORT_LEN:
+            (magic,) = struct.unpack_from("<I", quote_bytes, 0)
+            if magic == HCL_MAGIC:
+                quote_bytes = quote_bytes[HCL_SNP_OFFSET:]
         if len(quote_bytes) < SNP_MIN_REPORT_LEN:
             raise ValueError(
                 f"SEV-SNP report too short: {len(quote_bytes)} < {SNP_MIN_REPORT_LEN}"
@@ -145,11 +189,18 @@ def parse_and_verify_cpu_quote(
         if report_data != expected_report_data:
             raise ValueError("TDX hardware REPORTDATA does not match expected binding")
         measurement = quote_bytes[TDX_OFFSET_MRTD : TDX_OFFSET_MRTD + 48].hex()
+        rtmrs = {
+            "rtmr0": quote_bytes[TDX_OFFSET_RTMR0 : TDX_OFFSET_RTMR0 + 48].hex(),
+            "rtmr1": quote_bytes[TDX_OFFSET_RTMR1 : TDX_OFFSET_RTMR1 + 48].hex(),
+            "rtmr2": quote_bytes[TDX_OFFSET_RTMR2 : TDX_OFFSET_RTMR2 + 48].hex(),
+            "rtmr3": quote_bytes[TDX_OFFSET_RTMR3 : TDX_OFFSET_RTMR3 + 48].hex(),
+        }
         return {
             "tee": "tdx",
             "version": version,
             "debug": False,
             "measurement_hex": measurement,
+            "rtmrs_hex": rtmrs,
         }
 
     raise ValueError(f"Unsupported CPU TEE quote provider: {provider}")
@@ -163,10 +214,11 @@ def verify_rats_bundle(
     require_gpu: bool = True,
     allow_untrusted_cpu: bool = False,
     expected_measurement: str | None = None,
+    expected_value_x: str | None = None,
 ) -> dict:
-    """Verify an ntrust IETF RATS composite evidence bundle."""
-    if bundle.get("profile") != PROFILE:
-        raise ValueError(f"Unexpected RATS profile: {bundle.get('profile')}")
+    """Verify an ntrust unified-quote v2 EAT + RATS composite evidence bundle."""
+    if bundle.get("eat_profile") != EAT_PROFILE or bundle.get("version") != EAT_VERSION:
+        raise ValueError(f"Unexpected EAT profile: {bundle.get('eat_profile')}")
 
     nonce = bundle.get("nonce", "")
     if not NONCE_RE.match(nonce) or nonce != expected_nonce.lower():
@@ -179,6 +231,19 @@ def verify_rats_bundle(
             "TLS SPKI mismatch: attestation evidence does not match active TLS key"
         )
 
+    value_x_hex = bundle.get("value_x_hex", "")
+    source_hash_hex = bundle.get("source_hash_hex", "")
+    artifact_hash_hex = bundle.get("artifact_hash_hex", "")
+    for name, val in (
+        ("value_x_hex", value_x_hex),
+        ("source_hash_hex", source_hash_hex),
+        ("artifact_hash_hex", artifact_hash_hex),
+    ):
+        if not SHA384_RE.match(val):
+            raise ValueError(f"Invalid 48-byte SHA-384 field: {name}")
+    if expected_value_x and value_x_hex != expected_value_x.lower():
+        raise ValueError(f"Value X mismatch: {value_x_hex} != {expected_value_x}")
+
     gpu_tee = bundle.get("gpu_tee") or {}
     gpu_evidence_sha256 = gpu_tee.get("evidence_sha256", "")
     if not NONCE_RE.match(gpu_evidence_sha256):
@@ -187,18 +252,29 @@ def verify_rats_bundle(
         if not gpu_tee.get("present") or not gpu_tee.get("verified"):
             raise ValueError("Confidential GPU evidence is required but not verified")
 
-    manifest = bundle.get("manifest") or {}
-    manifest_sha256 = manifest.get("manifest_sha256", "")
-    if not NONCE_RE.match(manifest_sha256):
-        raise ValueError("Invalid manifest SHA-256 digest")
-
-    expected_report_data = compute_expected_report_data(
-        nonce, leaf_spki_sha256, gpu_evidence_sha256, manifest_sha256
-    )
+    tpm = bundle.get("tpm") or {}
+    pcr_composite_sha256 = tpm.get("pcr_composite_sha256", "")
+    if not NONCE_RE.match(pcr_composite_sha256):
+        raise ValueError("Invalid TPM PCR composite SHA-256 digest")
 
     cpu_tee = bundle.get("cpu_tee") or {}
+    platform = int(cpu_tee.get("platform", 0))
+    iat = int(bundle.get("iat", 0))
+
+    expected_report_data = compute_expected_report_data(
+        value_x=bytes.fromhex(value_x_hex),
+        platform=platform,
+        tls_spki_hash=bytes.fromhex(leaf_spki_sha256),
+        source_hash=bytes.fromhex(source_hash_hex),
+        artifact_hash=bytes.fromhex(artifact_hash_hex),
+        iat=iat,
+        eat_nonce=bytes.fromhex(nonce),
+        gpu_evidence_sha256=gpu_evidence_sha256,
+        pcr_composite_sha256=pcr_composite_sha256,
+    )
+
     if cpu_tee.get("report_data_hex") != expected_report_data.hex():
-        raise ValueError("CPU report_data_hex does not match recomputed binding")
+        raise ValueError("CPU report_data_hex does not match recomputed unified-quote binding")
 
     if not cpu_tee.get("confidential"):
         if not allow_untrusted_cpu:
@@ -209,6 +285,7 @@ def verify_rats_bundle(
             "verified": True,
             "confidential_cpu": False,
             "confidential_gpu": bool(gpu_tee.get("verified")),
+            "value_x_hex": value_x_hex,
             "leaf_spki_sha256": leaf_spki_sha256,
             "report_data_hex": expected_report_data.hex(),
             "measurement_hex": None,
@@ -231,9 +308,12 @@ def verify_rats_bundle(
         "confidential_cpu": True,
         "cpu_tee": parsed_quote["tee"],
         "confidential_gpu": bool(gpu_tee.get("verified")),
+        "value_x_hex": value_x_hex,
         "leaf_spki_sha256": leaf_spki_sha256,
         "report_data_hex": expected_report_data.hex(),
         "measurement_hex": parsed_quote["measurement_hex"],
+        "rtmrs_hex": parsed_quote.get("rtmrs_hex"),
+        "pcr_composite_sha256": pcr_composite_sha256,
     }
 
 
@@ -243,6 +323,7 @@ def fetch_and_verify(
     require_gpu: bool = True,
     allow_untrusted_cpu: bool = False,
     expected_measurement: str | None = None,
+    expected_value_x: str | None = None,
     cafile: str | None = None,
 ) -> dict:
     parsed = urlparse(base_url if "://" in base_url else f"https://{base_url}")
@@ -280,12 +361,13 @@ def fetch_and_verify(
         require_gpu=require_gpu,
         allow_untrusted_cpu=allow_untrusted_cpu,
         expected_measurement=expected_measurement,
+        expected_value_x=expected_value_x,
     )
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Verify ntrust IETF RATS remote attestation over TLS 1.3."
+        description="Verify ntrust unified-quote (https://uq.secure.build/eat/v2) remote attestation over TLS 1.3."
     )
     parser.add_argument("endpoint", help="HTTPS endpoint (e.g. https://inference.example.com)")
     parser.add_argument(
@@ -302,6 +384,10 @@ def main():
         "--expected-measurement",
         help="Expected 96-hex SEV-SNP launch measurement or TDX MRTD",
     )
+    parser.add_argument(
+        "--expected-value-x",
+        help="Expected 96-hex SHA-384 disk image tree measurement (Value X)",
+    )
     parser.add_argument("--cafile", help="Custom CA bundle for staging ACME certificates")
     args = parser.parse_args()
     try:
@@ -310,6 +396,7 @@ def main():
             require_gpu=not args.no_gpu,
             allow_untrusted_cpu=args.allow_untrusted_cpu,
             expected_measurement=args.expected_measurement,
+            expected_value_x=args.expected_value_x,
             cafile=args.cafile,
         )
     except Exception as exc:

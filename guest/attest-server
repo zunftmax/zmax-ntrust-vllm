@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""In-guest IETF RATS composite attestation responder on 127.0.0.1:8082.
+"""In-guest unified-quote (https://uq.secure.build/eat/v2) attestation responder.
 
-Binds a fresh 32-byte client nonce, the serving TLS certificate's DER
-SubjectPublicKeyInfo (SPKI) SHA-256, the verified in-RAM NVIDIA GPU SPDM
-evidence SHA-256, and the guest runtime manifest SHA-256 into the 64-byte
-CPU TEE hardware REPORT_DATA via Linux ConfigFS-TSM (/sys/kernel/config/tsm/report).
-Never labels an ordinary KVM VM as confidential.
+Aligns ntrust with maceip/unified-quote (uq):
+- Computes the deterministic 48-byte SHA-384 disk image tree measurement
+  (value_x / artifact_hash) over the guest's immutable kernel, service units,
+  admission scripts, NGINX template, and Python wheel lockfile.
+- Collects vTPM PCR 0..9 measurements (/sys/class/tpm/tpm0/pcr-sha256) on
+  AMD SEV-SNP and RTMR 0..3 measurements on Intel TDX so the kernel, cmdline,
+  and disk image are bound into the hardware quote across GCP, Azure, and AWS.
+- Emits the canonical unified-quote v2 64-byte REPORT_DATA layout:
+  report_data[0..32]  = EatToken::binding_bytes_v2()
+  report_data[32..64] = EatToken::second_commitment(sha256(gpu || tpm_pcrs))
+- Never labels an ordinary KVM VM as confidential.
 """
 import base64
 import hashlib
@@ -16,13 +22,50 @@ from pathlib import Path
 import re
 import socket
 import ssl
+import struct
 import subprocess
 import tempfile
+import time
 from urllib.parse import parse_qs, urlparse
 
-PROFILE = "urn:ietf:params:rats:ntrust-composite-v1"
+EAT_VERSION = 2
+EAT_PROFILE = "https://uq.secure.build/eat/v2"
+SECOND_COMMITMENT_DOMAIN = b"uq/eat/report-data-2\0"
 NONCE_RE = re.compile(r"^[0-9a-f]{64}$")
 NO_GPU_DIGEST = hashlib.sha256(b"ntrust-no-gpu-v1").hexdigest()
+
+PLATFORM_UNKNOWN = 0
+PLATFORM_NITRO = 1
+PLATFORM_SEV_SNP = 2
+PLATFORM_TDX = 3
+
+# Azure HCL vTPM report header ("HCLA" little-endian at offset 0, SNP report at 0x20)
+HCL_MAGIC = 0x414C4348
+HCL_SNP_OFFSET = 0x20
+SNP_REPORT_LEN = 1184
+
+DEFAULT_MEASURED_PATHS = (
+    "/usr/local/lib/ntrust/gpu-ready",
+    "/usr/local/lib/ntrust/tee-ready",
+    "/usr/local/lib/ntrust/https-start",
+    "/usr/local/lib/ntrust/inference-ready",
+    "/usr/local/lib/ntrust/inference-start",
+    "/usr/local/lib/ntrust/origin-ready",
+    "/usr/local/lib/ntrust/fetch-model",
+    "/usr/local/lib/ntrust/attest-server",
+    "/usr/local/bin/ntrust-status",
+    "/etc/ntrust/nginx.conf.template",
+    "/etc/ntrust/model.json",
+    "/etc/systemd/system/ntrust-gpu.service",
+    "/etc/systemd/system/ntrust-tee.service",
+    "/etc/systemd/system/ntrust-attest.service",
+    "/etc/systemd/system/ntrust-inference.service",
+    "/etc/systemd/system/ntrust-origin.service",
+    "/etc/systemd/system/ntrust-https.service",
+    "/usr/share/doc/ntrust/requirements.lock",
+    "/boot/vmlinuz-7.2.10-ntrust",
+    "/boot/config-7.2.10-ntrust",
+)
 
 
 def _read_asn1_tlv(data: bytes, offset: int) -> tuple[int, int, int, int]:
@@ -51,7 +94,7 @@ def _read_asn1_tlv(data: bytes, offset: int) -> tuple[int, int, int, int]:
 
 def extract_spki_der(cert_der: bytes) -> bytes:
     """Extract the exact DER-encoded SubjectPublicKeyInfo TLV from an X.509 cert."""
-    tag, cert_start, cert_end, _ = _read_asn1_tlv(cert_der, 0)
+    tag, cert_start, _, _ = _read_asn1_tlv(cert_der, 0)
     if tag != 0x30:
         raise ValueError("X.509 Certificate must start with SEQUENCE")
     tbs_tag, tbs_start, tbs_end, _ = _read_asn1_tlv(cert_der, cert_start)
@@ -59,9 +102,8 @@ def extract_spki_der(cert_der: bytes) -> bytes:
         raise ValueError("TBSCertificate must be a SEQUENCE")
     pos = tbs_start
     first_tag, _, _, next_pos = _read_asn1_tlv(cert_der, pos)
-    if first_tag == 0xA0:  # Optional [0] EXPLICIT Version
+    if first_tag == 0xA0:
         pos = next_pos
-    # Skip serialNumber, signature, issuer, validity, subject (5 DER elements)
     for _ in range(5):
         _, _, _, pos = _read_asn1_tlv(cert_der, pos)
     spki_tag, _, _, spki_end = _read_asn1_tlv(cert_der, pos)
@@ -70,26 +112,137 @@ def extract_spki_der(cert_der: bytes) -> bytes:
     return cert_der[pos:spki_end]
 
 
-def compute_report_data(
-    nonce_hex: str,
-    leaf_spki_sha256: str,
-    gpu_evidence_sha256: str,
-    manifest_sha256: str,
+def compute_value_x(root: Path | None = None, paths: tuple[str, ...] = DEFAULT_MEASURED_PATHS) -> bytes:
+    """Compute the 48-byte SHA-384 Value X using unified-quote's tree-hash format.
+
+    Each existing file in `paths` is hashed with SHA-384 (raw 48 bytes) and fed
+    in sorted order as `relative_path:` + raw_48_byte_sha384 + `\\n`, matching
+    `v2/src/value_x.rs::compute_tree_hash` in maceip/unified-quote.
+    """
+    entries: list[tuple[str, bytes]] = []
+    if root is not None and root.is_dir():
+        for p in sorted(root.rglob("*")):
+            if p.is_symlink() or not p.is_file():
+                continue
+            if p.name in (".git", "target", "node_modules", ".DS_Store", "out"):
+                continue
+            rel = p.relative_to(root).as_posix()
+            entries.append((rel, hashlib.sha384(p.read_bytes()).digest()))
+    else:
+        for raw_path in sorted(paths):
+            p = Path(raw_path)
+            if p.is_file() and not p.is_symlink():
+                rel = raw_path.lstrip("/")
+                entries.append((rel, hashlib.sha384(p.read_bytes()).digest()))
+    entries.sort(key=lambda item: item[0])
+    h = hashlib.sha384()
+    for rel, digest48 in entries:
+        h.update(rel.encode("utf-8"))
+        h.update(b":")
+        h.update(digest48)
+        h.update(b"\n")
+    return h.digest()
+
+
+def collect_tpm_pcrs(tpm_pcr_dir: Path | None = None) -> dict:
+    """Read vTPM / NitroTPM SHA-256 PCRs 0..9 covering firmware, GRUB, kernel, and cmdline."""
+    if tpm_pcr_dir is None:
+        tpm_pcr_dir = Path(
+            os.environ.get("NTRUST_TPM_PCR_DIR", "/sys/class/tpm/tpm0/pcr-sha256")
+        )
+    pcrs: dict[str, str] = {}
+    if tpm_pcr_dir.is_dir():
+        for idx in range(10):
+            p = tpm_pcr_dir / str(idx)
+            if p.is_file():
+                val = p.read_text().strip().lower()
+                if NONCE_RE.match(val):
+                    pcrs[str(idx)] = val
+    h = hashlib.sha256()
+    h.update(b"ntrust-tpm-pcrs-v1:")
+    for idx in sorted(pcrs.keys(), key=int):
+        h.update(f"{idx}:{pcrs[idx]}\n".encode("ascii"))
+    return {
+        "present": bool(pcrs),
+        "pcrs_sha256": pcrs,
+        "pcr_composite_sha256": h.hexdigest(),
+    }
+
+
+def compute_uq_binding_bytes_v2(
+    *,
+    value_x: bytes,
+    platform: int,
+    tls_spki_hash: bytes,
+    source_hash: bytes,
+    artifact_hash: bytes,
+    iat: int,
+    eat_nonce: bytes,
+    previous_hash: bytes = b"\x00" * 32,
 ) -> bytes:
-    """Compute the 64-byte SHA-512 REPORT_DATA binding all four trust anchors."""
-    for label, val in (
-        ("nonce", nonce_hex),
-        ("leaf_spki_sha256", leaf_spki_sha256),
-        ("gpu_evidence_sha256", gpu_evidence_sha256),
-        ("manifest_sha256", manifest_sha256),
-    ):
-        if not NONCE_RE.match(val):
-            raise ValueError(f"Invalid 64-hex digest for {label}")
-    binding = (
-        f"ntrust-rats-v1:{nonce_hex}:{leaf_spki_sha256}:"
-        f"{gpu_evidence_sha256}:{manifest_sha256}"
-    ).encode("ascii")
-    return hashlib.sha512(binding).digest()
+    """Exact byte-for-byte implementation of maceip/unified-quote EatToken::binding_bytes_v2."""
+    if len(value_x) != 48 or len(source_hash) != 48 or len(artifact_hash) != 48:
+        raise ValueError("value_x, source_hash, and artifact_hash must be 48 bytes (SHA-384)")
+    if len(tls_spki_hash) != 32 or len(eat_nonce) != 32 or len(previous_hash) != 32:
+        raise ValueError("tls_spki_hash, eat_nonce, and previous_hash must be 32 bytes")
+    h = hashlib.sha256()
+    h.update(struct.pack(">I", EAT_VERSION))
+    profile_bytes = EAT_PROFILE.encode("ascii")
+    h.update(struct.pack(">I", len(profile_bytes)))
+    h.update(profile_bytes)
+    h.update(value_x)
+    h.update(bytes([platform]))
+    h.update(tls_spki_hash)
+    h.update(source_hash)
+    h.update(artifact_hash)
+    h.update(struct.pack(">Q", iat))
+    h.update(eat_nonce)
+    h.update(previous_hash)
+    return h.digest()
+
+
+def compute_uq_second_commitment(value_x: bytes, challenge_32: bytes | None) -> bytes:
+    """Exact implementation of maceip/unified-quote EatToken::second_commitment."""
+    if len(value_x) != 48:
+        raise ValueError("value_x must be 48 bytes")
+    if challenge_32 is None:
+        return value_x[:32]
+    if len(challenge_32) != 32:
+        raise ValueError("challenge_32 must be 32 bytes")
+    h = hashlib.sha256()
+    h.update(SECOND_COMMITMENT_DOMAIN)
+    h.update(challenge_32)
+    h.update(value_x[:32])
+    return h.digest()
+
+
+def compute_uq_report_data_64(
+    *,
+    value_x: bytes,
+    platform: int,
+    tls_spki_hash: bytes,
+    source_hash: bytes,
+    artifact_hash: bytes,
+    iat: int,
+    eat_nonce: bytes,
+    gpu_evidence_sha256: str,
+    pcr_composite_sha256: str,
+) -> tuple[bytes, bytes]:
+    """Compute unified-quote 64-byte report_data and the 32-byte auxiliary challenge."""
+    aux_challenge = hashlib.sha256(
+        f"ntrust-aux-v2:{gpu_evidence_sha256}:{pcr_composite_sha256}".encode("ascii")
+    ).digest()
+    lower_32 = compute_uq_binding_bytes_v2(
+        value_x=value_x,
+        platform=platform,
+        tls_spki_hash=tls_spki_hash,
+        source_hash=source_hash,
+        artifact_hash=artifact_hash,
+        iat=iat,
+        eat_nonce=eat_nonce,
+    )
+    upper_32 = compute_uq_second_commitment(value_x, aux_challenge)
+    return lower_32 + upper_32, aux_challenge
 
 
 def collect_tsm_quote(report_data: bytes, tsm_root: Path) -> dict:
@@ -161,18 +314,23 @@ def build_rats_evidence(
     gpu_evidence_path: Path | None = None,
     model_manifest_path: Path | None = None,
     tsm_root: Path | None = None,
+    tpm_pcr_dir: Path | None = None,
+    value_x_root: Path | None = None,
     cvm: str | None = None,
+    iat: int | None = None,
 ) -> dict:
-    """Construct the composite IETF RATS evidence bundle."""
+    """Construct the unified-quote v2 EAT + RATS composite evidence bundle."""
     nonce_clean = nonce_hex.strip().lower()
     if not NONCE_RE.match(nonce_clean):
         raise ValueError("nonce must be a 64-character lowercase hex string (32 bytes)")
+    eat_nonce = bytes.fromhex(nonce_clean)
 
     domain = domain or os.environ.get("NTRUST_DOMAIN", "localhost")
     cert_file = cert_file or os.environ.get("NTRUST_TLS_CERT_FILE")
     cert_der = fetch_live_tls_cert_der(domain, port=tls_port, cert_file=cert_file)
     spki_der = extract_spki_der(cert_der)
-    leaf_spki_sha256 = hashlib.sha256(spki_der).hexdigest()
+    tls_spki_hash = hashlib.sha256(spki_der).digest()
+    leaf_spki_sha256 = tls_spki_hash.hex()
     leaf_cert_sha256 = hashlib.sha256(cert_der).hexdigest()
 
     if gpu_evidence_path is None:
@@ -216,21 +374,35 @@ def build_rats_evidence(
         if model_manifest_path.is_file()
         else b"{}"
     )
-    manifest_payload = json.dumps(
-        {
-            "kernel_release": kernel_release,
-            "model_manifest_sha256": hashlib.sha256(model_bytes).hexdigest(),
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    manifest_sha256 = hashlib.sha256(manifest_payload).hexdigest()
 
-    report_data = compute_report_data(
-        nonce_clean, leaf_spki_sha256, gpu_evidence_sha256, manifest_sha256
-    )
+    value_x = compute_value_x(root=value_x_root)
+    source_hash = hashlib.sha384(model_bytes).digest()
+    artifact_hash = value_x
+    tpm_info = collect_tpm_pcrs(tpm_pcr_dir)
 
     cvm_type = cvm if cvm is not None else detect_cvm()
+    if cvm_type == "sev-snp":
+        platform_id = PLATFORM_SEV_SNP
+    elif cvm_type == "tdx":
+        platform_id = PLATFORM_TDX
+    elif cvm_type == "nitro":
+        platform_id = PLATFORM_NITRO
+    else:
+        platform_id = PLATFORM_UNKNOWN
+
+    issued_at = int(iat if iat is not None else time.time())
+    report_data, aux_challenge = compute_uq_report_data_64(
+        value_x=value_x,
+        platform=platform_id,
+        tls_spki_hash=tls_spki_hash,
+        source_hash=source_hash,
+        artifact_hash=artifact_hash,
+        iat=issued_at,
+        eat_nonce=eat_nonce,
+        gpu_evidence_sha256=gpu_evidence_sha256,
+        pcr_composite_sha256=tpm_info["pcr_composite_sha256"],
+    )
+
     if tsm_root is None:
         tsm_root = Path(
             os.environ.get("NTRUST_TSM_REPORT_DIR", "/sys/kernel/config/tsm/report")
@@ -241,6 +413,7 @@ def build_rats_evidence(
         cpu_tee = {
             "confidential": True,
             "cvm": cvm_type,
+            "platform": platform_id,
             "provider": tsm_quote["provider"],
             "generation": tsm_quote["generation"],
             "report_data_hex": report_data.hex(),
@@ -251,6 +424,7 @@ def build_rats_evidence(
         cpu_tee = {
             "confidential": False,
             "cvm": cvm_type,
+            "platform": platform_id,
             "provider": "untrusted",
             "generation": 0,
             "report_data_hex": report_data.hex(),
@@ -258,8 +432,14 @@ def build_rats_evidence(
         }
 
     return {
-        "profile": PROFILE,
+        "version": EAT_VERSION,
+        "eat_profile": EAT_PROFILE,
         "nonce": nonce_clean,
+        "iat": issued_at,
+        "value_x_hex": value_x.hex(),
+        "source_hash_hex": source_hash.hex(),
+        "artifact_hash_hex": artifact_hash.hex(),
+        "aux_challenge_hex": aux_challenge.hex(),
         "tls_binding": {
             "domain": domain,
             "leaf_spki_sha256": leaf_spki_sha256,
@@ -267,10 +447,11 @@ def build_rats_evidence(
         },
         "cpu_tee": cpu_tee,
         "gpu_tee": gpu_tee,
+        "tpm": tpm_info,
         "manifest": {
             "kernel_release": kernel_release,
             "model_manifest_sha256": hashlib.sha256(model_bytes).hexdigest(),
-            "manifest_sha256": manifest_sha256,
+            "value_x_sha384": value_x.hex(),
         },
     }
 
@@ -300,7 +481,7 @@ class AttestHandler(BaseHTTPRequestHandler):
         self._send_json(
             200,
             bundle,
-            content_type=f'application/eat+json; profile="{PROFILE}"',
+            content_type=f'application/eat+json; profile="{EAT_PROFILE}"',
         )
 
     def _send_json(self, status: int, payload: dict, content_type: str = "application/json"):

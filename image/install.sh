@@ -177,7 +177,16 @@ systemctl enable ntrust-attest.service ntrust-inference.service ntrust-https.ser
 # This deliberately does not bypass the GPU gate or claim GPU execution.
 bash image/check-installed.sh
 
-# Record the actual package tuple; reproducible snapshot builds are deferred.
+# Record the canonical unified-quote Value X (48-byte SHA-384) disk tree measurement
+# and the actual package tuple.
+python3 - <<'PY' > /usr/share/doc/ntrust/value_x.sha384
+import importlib.machinery, importlib.util
+loader = importlib.machinery.SourceFileLoader('attest_server', '/usr/local/lib/ntrust/attest-server')
+spec = importlib.util.spec_from_loader('attest_server', loader)
+mod = importlib.util.module_from_spec(spec)
+loader.exec_module(mod)
+print(mod.compute_value_x().hex())
+PY
 dpkg-query -W -f='${Package}\t${Version}\n' > /usr/share/doc/ntrust/packages.tsv
 apt-get clean
 rm -rf /var/lib/apt/lists/*
