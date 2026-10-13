@@ -47,6 +47,13 @@ fi
 nvidia-smi conf-compute -srs 1
 nvidia-smi conf-compute -grs | grep -Eq '^[[:space:]]*Confidential Compute GPUs Ready state: ready[[:space:]]*$'
 
+# Confidential production zero-operator mode: disable remote administration attack surface.
+if command -v systemctl >/dev/null 2>&1; then
+    if [ "${NTRUST_NO_SSH:-0}" = "1" ] || [ "${NTRUST_OPERATOR_ACCESS:-1}" = "0" ]; then
+        systemctl mask --now ssh.service ssh.socket 2>/dev/null || true
+    fi
+fi
+
 # One client credential per boot, generated only after verification. Preserve it
 # across service restarts; neither it nor the TLS private key belongs on disk.
 umask 077

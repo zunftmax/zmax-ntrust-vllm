@@ -42,8 +42,28 @@ class OsHardeningTests(unittest.TestCase):
             "PermitTunnel no",
             "GatewayPorts no",
             "MaxAuthTries 3",
+            "AddressFamily inet",
+            "PermitUserEnvironment no",
+            "ClientAliveInterval 300",
+            "ClientAliveCountMax 0",
         ):
             self.assertIn(directive, finalize)
+
+    def test_finalize_confines_compilers(self):
+        finalize = (ROOT / "image" / "finalize.sh").read_text()
+        self.assertIn("chmod 0750", finalize)
+        self.assertIn("chgrp ntrust", finalize)
+
+    def test_install_sets_hardened_kernel_cmdline(self):
+        install = (ROOT / "image" / "install.sh").read_text()
+        for cmdline_arg in (
+            "init_on_alloc=1",
+            "init_on_free=1",
+            "page_alloc.shuffle=1",
+            "slab_nomerge",
+            "pti=on",
+        ):
+            self.assertIn(cmdline_arg, install)
 
     def test_systemd_units_enforce_sandboxing(self):
         for w_x_unit in ("ntrust-https.service", "ntrust-attest.service"):

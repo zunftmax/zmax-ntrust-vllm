@@ -111,7 +111,7 @@ cat > /etc/default/grub.d/40-force-partuuid.cfg <<'EOF'
 GRUB_FORCE_PARTUUID=
 GRUB_DISABLE_LINUX_UUID=true
 GRUB_DISABLE_LINUX_PARTUUID=false
-GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX rootwait"
+GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX rootwait mitigations=auto,nosmt init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1 slab_nomerge pti=on"
 EOF
 update-grub
 

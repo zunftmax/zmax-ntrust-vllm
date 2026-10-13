@@ -18,7 +18,18 @@ AllowAgentForwarding no
 PermitTunnel no
 GatewayPorts no
 MaxAuthTries 3
+AddressFamily inet
+PermitUserEnvironment no
+ClientAliveInterval 300
+ClientAliveCountMax 0
 EOF
+# Confine compilers so unprivileged users or network services cannot execute them.
+for tool in /usr/bin/gcc* /usr/bin/g++* /usr/bin/as /usr/bin/ld* /usr/bin/x86_64-linux-gnu-*; do
+  if [ -e "$tool" ]; then
+    chmod 0750 "$tool"
+    chgrp ntrust "$tool" 2>/dev/null || true
+  fi
+done
 rm -rf /tmp/ntrust /tmp/packer* /var/tmp/*
 find /var/log -type f -exec truncate -s 0 {} +
 fstrim -av || true

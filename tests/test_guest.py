@@ -53,6 +53,7 @@ esac''')
         self.stub("timeout", 'shift 2; exec "$@"')
         self.stub("openssl", 'echo key-generated >> "$CALLS"; echo test-only-key')
         self.stub("nginx", 'echo nginx-start >> "$CALLS"')
+        self.stub("systemctl", 'echo "systemctl $*" >> "$CALLS"')
 
     def stub(self, name, body):
         p = self.bin / name
@@ -156,6 +157,17 @@ esac''')
                                 "https://acme-staging-v02.api.letsencrypt.org/directory")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("acme-staging-v02", (self.run / "nginx.conf").read_text())
+
+    def test_no_ssh_mode_masks_ssh_service(self):
+        (self.base / "calls").write_text("")
+        result = self.run_guest("gpu-ready", NTRUST_NO_SSH="1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("systemctl mask --now ssh.service ssh.socket", self.calls())
+
+        (self.base / "calls").write_text("")
+        result = self.run_guest("gpu-ready", NTRUST_NO_SSH="0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("systemctl mask", self.calls())
 
 
 if __name__ == "__main__":
