@@ -16,3 +16,5 @@
 - A local build or boot does not establish cloud or confidential GPU compatibility.
   Report what actually exists and ran. Never label a normal VM confidential.
 - Keep provider launch configuration separate from shared guest contents.
+
+EMAIL => agents@outbox.sh
