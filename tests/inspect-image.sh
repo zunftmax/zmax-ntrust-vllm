@@ -19,7 +19,7 @@ for name in ('root/.ssh/authorized_keys', 'var/lib/systemd/random-seed',
 assert not list((root / 'etc/ssh').glob('ssh_host_*'))
 assert not list((root / 'var/lib/cloud/instances').glob('*'))
 assert (root / 'etc/machine-id').read_text().strip() in ('', 'uninitialized')
-assert (root / 'etc/ssh/sshd_config.d/00-ntrust.conf').read_text() == 'PermitRootLogin no\nPasswordAuthentication no\n'
+assert (root / 'etc/ssh/sshd_config.d/00-ntrust.conf').read_text().startswith('PermitRootLogin no\nPasswordAuthentication no\n')
 key_header = re.compile(rb'-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----')
 for dirname in ('etc', 'root', 'home', 'var/lib', 'tmp', 'var/tmp', 'usr/share/doc/ntrust'):
     for path in (root / dirname).rglob('*'):

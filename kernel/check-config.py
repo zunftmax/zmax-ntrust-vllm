@@ -40,6 +40,8 @@ for hardened, expected in (
     ('CONFIG_MODULE_SIG_FORCE', 'y'),
     ('CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY', 'y'),
     ('CONFIG_BPF_UNPRIV_DEFAULT_OFF', 'y'),
+    ('CONFIG_SEV_GUEST', 'y'),
+    ('CONFIG_TDX_GUEST_DRIVER', 'y'),
 ):
     if actual.get(hardened, 'n') != expected:
         errors.append(f'Hardening invariant failed: {hardened}={expected}')

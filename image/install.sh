@@ -89,7 +89,7 @@ id -u ntrust >/dev/null 2>&1 || useradd --system --home-dir /nonexistent --shell
 id -u ntrust-web >/dev/null 2>&1 || useradd --system --home-dir /nonexistent --shell /usr/sbin/nologin ntrust-web
 getent group render >/dev/null || groupadd --system render
 install -d -m 0755 /usr/local/lib/ntrust /etc/ntrust /var/lib/ntrust
-install -m 0755 guest/gpu-ready guest/https-start guest/inference-ready guest/inference-start guest/fetch-model /usr/local/lib/ntrust/
+install -m 0755 guest/gpu-ready guest/https-start guest/inference-ready guest/inference-start guest/fetch-model guest/attest-server /usr/local/lib/ntrust/
 install -m 0755 guest/status /usr/local/bin/ntrust-status
 install -m 0644 guest/nginx.conf.template guest/runtime.env.example guest/model.json /etc/ntrust/
 install -m 0644 guest/systemd/*.service /etc/systemd/system/
@@ -171,7 +171,7 @@ EOF
 install -d /etc/systemd/journald.conf.d
 printf '[Journal]\nStorage=volatile\nRuntimeMaxUse=32M\nForwardToSyslog=no\n' > /etc/systemd/journald.conf.d/ntrust.conf
 systemctl enable systemd-resolved.service systemd-timesyncd.service
-systemctl enable ntrust-inference.service ntrust-https.service
+systemctl enable ntrust-attest.service ntrust-inference.service ntrust-https.service
 
 # Exercise installed CPU-side binaries/configuration during the Linux build.
 # This deliberately does not bypass the GPU gate or claim GPU execution.

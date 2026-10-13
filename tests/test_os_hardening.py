@@ -46,9 +46,15 @@ class OsHardeningTests(unittest.TestCase):
             self.assertIn(directive, finalize)
 
     def test_systemd_units_enforce_sandboxing(self):
-        https = (ROOT / "guest" / "systemd" / "ntrust-https.service").read_text()
-        self.assertIn("MemoryDenyWriteExecute=yes", https)
-        for name in ("ntrust-gpu.service", "ntrust-inference.service", "ntrust-https.service"):
+        for w_x_unit in ("ntrust-https.service", "ntrust-attest.service"):
+            unit_text = (ROOT / "guest" / "systemd" / w_x_unit).read_text()
+            self.assertIn("MemoryDenyWriteExecute=yes", unit_text)
+        for name in (
+            "ntrust-gpu.service",
+            "ntrust-attest.service",
+            "ntrust-inference.service",
+            "ntrust-https.service",
+        ):
             unit = (ROOT / "guest" / "systemd" / name).read_text()
             for directive in (
                 "NoNewPrivileges=yes",

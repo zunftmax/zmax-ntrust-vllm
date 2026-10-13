@@ -1,0 +1,324 @@
+#!/usr/bin/env python3
+"""In-guest IETF RATS composite attestation responder on 127.0.0.1:8082.
+
+Binds a fresh 32-byte client nonce, the serving TLS certificate's DER
+SubjectPublicKeyInfo (SPKI) SHA-256, the verified in-RAM NVIDIA GPU SPDM
+evidence SHA-256, and the guest runtime manifest SHA-256 into the 64-byte
+CPU TEE hardware REPORT_DATA via Linux ConfigFS-TSM (/sys/kernel/config/tsm/report).
+Never labels an ordinary KVM VM as confidential.
+"""
+import base64
+import hashlib
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import json
+import os
+from pathlib import Path
+import re
+import socket
+import ssl
+import subprocess
+import tempfile
+from urllib.parse import parse_qs, urlparse
+
+PROFILE = "urn:ietf:params:rats:ntrust-composite-v1"
+NONCE_RE = re.compile(r"^[0-9a-f]{64}$")
+NO_GPU_DIGEST = hashlib.sha256(b"ntrust-no-gpu-v1").hexdigest()
+
+
+def _read_asn1_tlv(data: bytes, offset: int) -> tuple[int, int, int, int]:
+    """Return (tag, value_start, value_end, next_offset) for a DER TLV."""
+    if offset >= len(data):
+        raise ValueError("Truncated ASN.1 DER tag")
+    tag = data[offset]
+    pos = offset + 1
+    if pos >= len(data):
+        raise ValueError("Truncated ASN.1 DER length")
+    first_len = data[pos]
+    pos += 1
+    if first_len < 0x80:
+        length = first_len
+    else:
+        num_octets = first_len & 0x7F
+        if num_octets == 0 or num_octets > 4 or pos + num_octets > len(data):
+            raise ValueError("Invalid ASN.1 DER length octets")
+        length = int.from_bytes(data[pos : pos + num_octets], "big")
+        pos += num_octets
+    end = pos + length
+    if end > len(data):
+        raise ValueError("ASN.1 DER value exceeds buffer")
+    return tag, pos, end, end
+
+
+def extract_spki_der(cert_der: bytes) -> bytes:
+    """Extract the exact DER-encoded SubjectPublicKeyInfo TLV from an X.509 cert."""
+    tag, cert_start, cert_end, _ = _read_asn1_tlv(cert_der, 0)
+    if tag != 0x30:
+        raise ValueError("X.509 Certificate must start with SEQUENCE")
+    tbs_tag, tbs_start, tbs_end, _ = _read_asn1_tlv(cert_der, cert_start)
+    if tbs_tag != 0x30:
+        raise ValueError("TBSCertificate must be a SEQUENCE")
+    pos = tbs_start
+    first_tag, _, _, next_pos = _read_asn1_tlv(cert_der, pos)
+    if first_tag == 0xA0:  # Optional [0] EXPLICIT Version
+        pos = next_pos
+    # Skip serialNumber, signature, issuer, validity, subject (5 DER elements)
+    for _ in range(5):
+        _, _, _, pos = _read_asn1_tlv(cert_der, pos)
+    spki_tag, _, _, spki_end = _read_asn1_tlv(cert_der, pos)
+    if spki_tag != 0x30 or spki_end > tbs_end:
+        raise ValueError("Invalid SubjectPublicKeyInfo SEQUENCE in TBSCertificate")
+    return cert_der[pos:spki_end]
+
+
+def compute_report_data(
+    nonce_hex: str,
+    leaf_spki_sha256: str,
+    gpu_evidence_sha256: str,
+    manifest_sha256: str,
+) -> bytes:
+    """Compute the 64-byte SHA-512 REPORT_DATA binding all four trust anchors."""
+    for label, val in (
+        ("nonce", nonce_hex),
+        ("leaf_spki_sha256", leaf_spki_sha256),
+        ("gpu_evidence_sha256", gpu_evidence_sha256),
+        ("manifest_sha256", manifest_sha256),
+    ):
+        if not NONCE_RE.match(val):
+            raise ValueError(f"Invalid 64-hex digest for {label}")
+    binding = (
+        f"ntrust-rats-v1:{nonce_hex}:{leaf_spki_sha256}:"
+        f"{gpu_evidence_sha256}:{manifest_sha256}"
+    ).encode("ascii")
+    return hashlib.sha512(binding).digest()
+
+
+def collect_tsm_quote(report_data: bytes, tsm_root: Path) -> dict:
+    """Request a hardware CPU TEE quote via Linux ConfigFS-TSM."""
+    if len(report_data) != 64:
+        raise ValueError("ConfigFS-TSM inblob requires exactly 64 bytes")
+    slot = Path(tempfile.mkdtemp(prefix="ntrust_", dir=str(tsm_root)))
+    try:
+        (slot / "inblob").write_bytes(report_data)
+        quote_bytes = (slot / "outblob").read_bytes()
+        provider = (slot / "provider").read_text().strip()
+        generation = int((slot / "generation").read_text().strip())
+        if generation < 1 or not quote_bytes:
+            raise RuntimeError("ConfigFS-TSM quote generation incomplete")
+        return {
+            "provider": provider,
+            "generation": generation,
+            "quote_b64": base64.b64encode(quote_bytes).decode("ascii"),
+        }
+    finally:
+        try:
+            slot.rmdir()
+        except OSError:
+            pass
+
+
+def fetch_live_tls_cert_der(
+    domain: str,
+    port: int = 443,
+    cert_file: str | None = None,
+) -> bytes:
+    """Read the serving TLS leaf certificate in DER form."""
+    if cert_file:
+        raw = Path(cert_file).read_bytes()
+        if b"-----BEGIN CERTIFICATE-----" in raw:
+            return ssl.PEM_cert_to_DER_cert(raw.decode("ascii"))
+        return raw
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_3
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    with socket.create_connection(("127.0.0.1", port), timeout=5.0) as sock:
+        with ctx.wrap_socket(sock, server_hostname=domain) as ssock:
+            der = ssock.getpeercert(binary_form=True)
+            if not der:
+                raise RuntimeError("No TLS peer certificate returned by local listener")
+            return der
+
+
+def detect_cvm() -> str:
+    override = os.environ.get("NTRUST_CVM_OVERRIDE")
+    if override is not None:
+        return override.strip()
+    res = subprocess.run(
+        ["systemd-detect-virt", "--cvm"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return res.stdout.strip() or "none"
+
+
+def build_rats_evidence(
+    nonce_hex: str,
+    *,
+    domain: str | None = None,
+    tls_port: int = 443,
+    cert_file: str | None = None,
+    gpu_evidence_path: Path | None = None,
+    model_manifest_path: Path | None = None,
+    tsm_root: Path | None = None,
+    cvm: str | None = None,
+) -> dict:
+    """Construct the composite IETF RATS evidence bundle."""
+    nonce_clean = nonce_hex.strip().lower()
+    if not NONCE_RE.match(nonce_clean):
+        raise ValueError("nonce must be a 64-character lowercase hex string (32 bytes)")
+
+    domain = domain or os.environ.get("NTRUST_DOMAIN", "localhost")
+    cert_file = cert_file or os.environ.get("NTRUST_TLS_CERT_FILE")
+    cert_der = fetch_live_tls_cert_der(domain, port=tls_port, cert_file=cert_file)
+    spki_der = extract_spki_der(cert_der)
+    leaf_spki_sha256 = hashlib.sha256(spki_der).hexdigest()
+    leaf_cert_sha256 = hashlib.sha256(cert_der).hexdigest()
+
+    if gpu_evidence_path is None:
+        env_gpu = os.environ.get("NTRUST_GPU_EVIDENCE_PATH")
+        if env_gpu:
+            gpu_evidence_path = Path(env_gpu)
+        elif Path("/run/ntrust-gpu/attestation.json").is_file():
+            gpu_evidence_path = Path("/run/ntrust-gpu/attestation.json")
+        elif Path("/run/ntrust-tee/attestation.json").is_file():
+            gpu_evidence_path = Path("/run/ntrust-tee/attestation.json")
+
+    if gpu_evidence_path and gpu_evidence_path.is_file():
+        gpu_raw = gpu_evidence_path.read_bytes()
+        gpu_evidence_sha256 = hashlib.sha256(gpu_raw).hexdigest()
+        try:
+            gpu_parsed = json.loads(gpu_raw.decode("utf-8"))
+        except ValueError:
+            gpu_parsed = None
+        gpu_tee = {
+            "present": True,
+            "verified": True,
+            "evidence_sha256": gpu_evidence_sha256,
+            "evidence": gpu_parsed,
+        }
+    else:
+        gpu_evidence_sha256 = NO_GPU_DIGEST
+        gpu_tee = {
+            "present": False,
+            "verified": False,
+            "evidence_sha256": gpu_evidence_sha256,
+            "evidence": None,
+        }
+
+    if model_manifest_path is None:
+        model_manifest_path = Path(
+            os.environ.get("NTRUST_MODEL_MANIFEST", "/etc/ntrust/model.json")
+        )
+    kernel_release = os.uname().release
+    model_bytes = (
+        model_manifest_path.read_bytes()
+        if model_manifest_path.is_file()
+        else b"{}"
+    )
+    manifest_payload = json.dumps(
+        {
+            "kernel_release": kernel_release,
+            "model_manifest_sha256": hashlib.sha256(model_bytes).hexdigest(),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    manifest_sha256 = hashlib.sha256(manifest_payload).hexdigest()
+
+    report_data = compute_report_data(
+        nonce_clean, leaf_spki_sha256, gpu_evidence_sha256, manifest_sha256
+    )
+
+    cvm_type = cvm if cvm is not None else detect_cvm()
+    if tsm_root is None:
+        tsm_root = Path(
+            os.environ.get("NTRUST_TSM_REPORT_DIR", "/sys/kernel/config/tsm/report")
+        )
+
+    if cvm_type in ("sev-snp", "tdx") and tsm_root.is_dir():
+        tsm_quote = collect_tsm_quote(report_data, tsm_root)
+        cpu_tee = {
+            "confidential": True,
+            "cvm": cvm_type,
+            "provider": tsm_quote["provider"],
+            "generation": tsm_quote["generation"],
+            "report_data_hex": report_data.hex(),
+            "quote_b64": tsm_quote["quote_b64"],
+        }
+    else:
+        # Never label a normal KVM or unquoted VM as confidential.
+        cpu_tee = {
+            "confidential": False,
+            "cvm": cvm_type,
+            "provider": "untrusted",
+            "generation": 0,
+            "report_data_hex": report_data.hex(),
+            "quote_b64": None,
+        }
+
+    return {
+        "profile": PROFILE,
+        "nonce": nonce_clean,
+        "tls_binding": {
+            "domain": domain,
+            "leaf_spki_sha256": leaf_spki_sha256,
+            "leaf_cert_sha256": leaf_cert_sha256,
+        },
+        "cpu_tee": cpu_tee,
+        "gpu_tee": gpu_tee,
+        "manifest": {
+            "kernel_release": kernel_release,
+            "model_manifest_sha256": hashlib.sha256(model_bytes).hexdigest(),
+            "manifest_sha256": manifest_sha256,
+        },
+    }
+
+
+class AttestHandler(BaseHTTPRequestHandler):
+    server_version = "ntrust-attest"
+    sys_version = ""
+
+    def log_message(self, format, *args):
+        return  # Never log requests or client nonces
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path != "/v1/attest":
+            self._send_json(404, {"error": "Not found"})
+            return
+        qs = parse_qs(parsed.query, keep_blank_values=True)
+        nonce = (qs.get("nonce") or [self.headers.get("X-Ntrust-Nonce", "")])[0]
+        try:
+            bundle = build_rats_evidence(nonce)
+        except ValueError as exc:
+            self._send_json(400, {"error": str(exc)})
+            return
+        except Exception:
+            self._send_json(503, {"error": "Attestation evidence unavailable"})
+            return
+        self._send_json(
+            200,
+            bundle,
+            content_type=f'application/eat+json; profile="{PROFILE}"',
+        )
+
+    def _send_json(self, status: int, payload: dict, content_type: str = "application/json"):
+        body = json.dumps(payload, sort_keys=True).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def main():
+    host = os.environ.get("NTRUST_ATTEST_HOST", "127.0.0.1")
+    port = int(os.environ.get("NTRUST_ATTEST_PORT", "8082"))
+    httpd = HTTPServer((host, port), AttestHandler)
+    httpd.serve_forever()
+
+
+if __name__ == "__main__":
+    main()
