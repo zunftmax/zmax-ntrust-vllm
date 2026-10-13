@@ -333,6 +333,24 @@ def build_rats_evidence(
     leaf_spki_sha256 = tls_spki_hash.hex()
     leaf_cert_sha256 = hashlib.sha256(cert_der).hexdigest()
 
+    # If the native Rust uq binary is present on the system, delegate directly to it
+    uq_path = os.environ.get("NTRUST_UQ_BIN") or (
+        "/usr/local/bin/uq" if Path("/usr/local/bin/uq").is_file() else None
+    )
+    if uq_path:
+        try:
+            proc = subprocess.run(
+                [uq_path, "collect", "--nonce", nonce_clean, "--tls-spki-hash", leaf_spki_sha256, "--json"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                return json.loads(proc.stdout)
+        except Exception:
+            pass
+
     if gpu_evidence_path is None:
         env_gpu = os.environ.get("NTRUST_GPU_EVIDENCE_PATH")
         if env_gpu:
